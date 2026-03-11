@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "projects/*",
+    "common",
+]
+resolver = "2"
