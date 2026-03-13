@@ -3,10 +3,23 @@ pub mod handler;
 pub mod manager;
 
 use access::PostgresUrlRepository;
-use axum::{routing::{get, post}, Router};
+use axum::Router;
 use manager::AppManager;
 use sqlx::postgres::PgPoolOptions;
 use std::sync::Arc;
+use utoipa::OpenApi;
+use utoipa_axum::{router::OpenApiRouter, routes};
+use utoipa_swagger_ui::SwaggerUi;
+
+#[derive(OpenApi)]
+#[openapi(
+    info(title = "URL Shortener API", version = "0.1.0"),
+    tags(
+        (name = "url_shortener", description = "URL Shortener API")
+    ),
+    components(schemas(handler::ShortenRequest, handler::ShortenResponse))
+)]
+struct ApiDoc;
 
 pub async fn create_app(database_url: &str, init: bool) -> anyhow::Result<(Router, Arc<AppManager>)> {
     let pool = PgPoolOptions::new()
@@ -21,9 +34,13 @@ pub async fn create_app(database_url: &str, init: bool) -> anyhow::Result<(Route
         manager.init_db().await?;
     }
 
-    let app = Router::new()
-        .route("/shorten", post(handler::shorten_handler))
-        .route("/{code}", get(handler::redirect_handler))
+    let (router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
+        .routes(routes!(handler::shorten_handler))
+        .routes(routes!(handler::redirect_handler))
+        .split_for_parts();
+
+    let app = router
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", api))
         .with_state(manager.clone());
 
     Ok((app, manager))

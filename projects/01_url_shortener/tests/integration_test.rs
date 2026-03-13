@@ -58,10 +58,43 @@ impl TestApp {
         ).await.unwrap()
     }
 
+    async fn get_endpoint(&self, uri: &str) -> Response<Body> {
+        self.router.clone().oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(uri)
+                .body(Body::empty())
+                .unwrap(),
+        ).await.unwrap()
+    }
+
     async fn parse_json_body(response: Response<Body>) -> Value {
         let bytes = response.into_body().collect().await.unwrap().to_bytes();
         serde_json::from_slice(&bytes).unwrap()
     }
+}
+
+#[tokio::test]
+async fn test_openapi_json_is_reachable() {
+    let app = TestApp::setup().await;
+    let response = app.get_endpoint("/api-docs/openapi.json").await;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = TestApp::parse_json_body(response).await;
+    assert_eq!(body["openapi"].as_str().unwrap(), "3.1.0");
+    assert_eq!(body["info"]["title"].as_str().unwrap(), "URL Shortener API");
+}
+
+#[tokio::test]
+async fn test_swagger_ui_is_reachable() {
+    let app = TestApp::setup().await;
+    // Swagger UI redirects /swagger-ui to /swagger-ui/
+    let response = app.get_endpoint("/swagger-ui/").await;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let body_str = String::from_utf8_lossy(&bytes);
+    assert!(body_str.contains("swagger-ui"));
 }
 
 #[tokio::test]

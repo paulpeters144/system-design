@@ -7,17 +7,27 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use crate::manager::AppManager;
+use utoipa::ToSchema;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 pub struct ShortenRequest {
     pub url: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ShortenResponse {
     pub short_code: String,
 }
 
+#[utoipa::path(
+    post,
+    path = "/shorten",
+    request_body = ShortenRequest,
+    responses(
+        (status = 201, description = "URL shortened successfully", body = ShortenResponse),
+        (status = 500, description = "Internal server error")
+    )
+)]
 pub async fn shorten_handler(
     State(manager): State<Arc<AppManager>>,
     Json(payload): Json<ShortenRequest>,
@@ -26,6 +36,18 @@ pub async fn shorten_handler(
     Ok((StatusCode::CREATED, Json(ShortenResponse { short_code })))
 }
 
+#[utoipa::path(
+    get,
+    path = "/{code}",
+    params(
+        ("code" = String, Path, description = "The short code to redirect from")
+    ),
+    responses(
+        (status = 307, description = "Redirect to the long URL"),
+        (status = 404, description = "Short code not found"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 pub async fn redirect_handler(
     Path(code): Path<String>,
     State(manager): State<Arc<AppManager>>,
