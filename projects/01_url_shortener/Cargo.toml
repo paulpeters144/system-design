@@ -5,3 +5,20 @@ edition = "2024"
 
 [dependencies]
 common = { path = "../../common" }
+anyhow = "1.0.102"
+async-trait = "0.1.89"
+axum = { version = "0.8.8", features = ["macros"] }
+sqlx = { version = "0.8.3", features = ["runtime-tokio-rustls", "postgres", "chrono"] }
+nanoid = "0.4.0"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+chrono = { version = "0.4.39", features = ["serde"] }
+thiserror = "2.0.18"
+tokio = { version = "1.50.0", features = ["full"] }
+tower = { version = "0.5.3", features = ["util"] }
+tower-http = { version = "0.6.8", features = ["trace"] }
+tracing = "0.1.44"
+tracing-subscriber = "0.3.22"
+
+[dev-dependencies]
+http-body-util = "0.1.3"
