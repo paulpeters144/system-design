@@ -14,56 +14,13 @@ This project follows a layered architecture to ensure separation of concerns and
 ### System Design
 
 #### High-Level Architecture
-```mermaid
-graph TD
-    User([User]) <--> API[Axum API Layer]
-    API <--> Logic[App Manager - Service Layer]
-    Logic <--> Repo[Url Repository - Data Access Layer]
-    Repo <--> DB[(PostgreSQL)]
-```
+![High-Level Architecture](docs/images/high_level.png)
 
 #### URL Shortening Flow
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant H as Handler (Axum)
-    participant M as Manager (AppManager)
-    participant R as Repository (PostgresUrlRepository)
-    participant D as Database (Postgres)
-
-    U->>H: POST /shorten {url}
-    H->>M: shorten_url(url)
-    M->>M: generate nanoid(8)
-    M->>R: save(url, code)
-    R->>D: INSERT INTO urls...
-    D-->>R: UrlRecord
-    R-->>M: UrlRecord
-    M-->>H: short_code
-    H-->>U: 201 Created {short_code}
-```
+![URL Shortening Flow](docs/images/shorten_flow.png)
 
 #### URL Redirection Flow
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant H as Handler (Axum)
-    participant M as Manager (AppManager)
-    participant R as Repository (PostgresUrlRepository)
-    participant D as Database (Postgres)
-
-    U->>H: GET /{code}
-    H->>M: get_long_url(code)
-    M->>R: get_by_code(code)
-    R->>D: SELECT ... FROM urls WHERE code = ?
-    D-->>R: Result
-    R-->>M: Option<UrlRecord>
-    M-->>H: Option<String>
-    alt code found
-        H-->>U: 307 Temporary Redirect {url}
-    else code not found
-        H-->>U: 404 Not Found
-    end
-```
+![URL Redirection Flow](docs/images/redirect_flow.png)
 
 ## Tech Stack
 
