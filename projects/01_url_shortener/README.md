@@ -11,17 +11,6 @@ This project follows a layered architecture to ensure separation of concerns and
 3.  **Data Access Layer (`access.rs`)**: Implements the **Repository Pattern** using `sqlx`. It provides a concrete PostgreSQL implementation of the `UrlRepository` trait, handling SQL queries and data mapping.
 4.  **Infrastructure**: PostgreSQL is used for persistent storage of URL mappings.
 
-### System Design
-
-#### High-Level Architecture
-```mermaid
-graph TD
-    User([User]) <--> API[API Layer]
-    API <--> Manager[Manager]
-    Manager <--> DAL[Data Access Layer]
-    DAL <--> DB[(Database)]
-```
-
 #### URL Shortening Flow
 This flow handles the creation of a new short link by generating a unique 8-character identifier for a given long URL and persisting the mapping in the database.
 ```mermaid
