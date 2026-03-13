@@ -8,7 +8,7 @@ use manager::AppManager;
 use sqlx::postgres::PgPoolOptions;
 use std::sync::Arc;
 
-pub async fn create_app(database_url: &str) -> anyhow::Result<Router> {
+pub async fn create_app(database_url: &str) -> anyhow::Result<(Router, Arc<AppManager>)> {
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(database_url)
@@ -22,7 +22,7 @@ pub async fn create_app(database_url: &str) -> anyhow::Result<Router> {
     let app = Router::new()
         .route("/shorten", post(handler::shorten_handler))
         .route("/{code}", get(handler::redirect_handler))
-        .with_state(manager);
+        .with_state(manager.clone());
 
-    Ok(app)
+    Ok((app, manager))
 }
