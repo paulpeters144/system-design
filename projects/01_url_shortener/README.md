@@ -16,52 +16,54 @@ This project follows a layered architecture to ensure separation of concerns and
 #### High-Level Architecture
 ```mermaid
 graph TD
-    User([User]) <--> API[Axum API Layer]
-    API <--> Logic[App Manager - Service Layer]
-    Logic <--> Repo[Url Repository - Data Access Layer]
-    Repo <--> DB[(PostgreSQL)]
+    User([User]) <--> API[API Layer]
+    API <--> Manager[Manager]
+    Manager <--> DAL[Data Access Layer]
+    DAL <--> DB[(Database)]
 ```
 
 #### URL Shortening Flow
+This flow handles the creation of a new short link by generating a unique 8-character identifier for a given long URL and persisting the mapping in the database.
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant H as Handler (Axum)
-    participant M as Manager (AppManager)
-    participant R as Repository (PostgresUrlRepository)
-    participant D as Database (Postgres)
+    participant A as API Layer
+    participant M as Manager
+    participant D as Data Access Layer
+    participant DB as Database
 
-    U->>H: POST /shorten {url}
-    H->>M: shorten_url(url)
-    M->>M: generate nanoid(8)
-    M->>R: save(url, code)
-    R->>D: INSERT INTO urls...
-    D-->>R: UrlRecord
-    R-->>M: UrlRecord
-    M-->>H: short_code
-    H-->>U: 201 Created {short_code}
+    U->>A: POST /shorten {url}
+    A->>M: shorten_url(url)
+    M->>M: generate unique code
+    M->>D: save(url, code)
+    D->>DB: Persist URL mapping
+    DB-->>D: Confirmation
+    D-->>M: Record
+    M-->>A: short_code
+    A-->>U: 201 Created {short_code}
 ```
 
 #### URL Redirection Flow
+This flow retrieves the original long URL associated with a short code and performs a 307 Temporary Redirect to the destination, or returns a 404 if the code is invalid.
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant H as Handler (Axum)
-    participant M as Manager (AppManager)
-    participant R as Repository (PostgresUrlRepository)
-    participant D as Database (Postgres)
+    participant A as API Layer
+    participant M as Manager
+    participant D as Data Access Layer
+    participant DB as Database
 
-    U->>H: GET /{code}
-    H->>M: get_long_url(code)
-    M->>R: get_by_code(code)
-    R->>D: SELECT ... FROM urls WHERE code = ?
-    D-->>R: Result
-    R-->>M: Option<UrlRecord>
-    M-->>H: Option<String>
+    U->>A: GET /{code}
+    A->>M: get_long_url(code)
+    M->>D: get_by_code(code)
+    D->>DB: Query by code
+    DB-->>D: Result
+    D-->>M: Optional Record
+    M-->>A: Optional Long URL
     alt code found
-        H-->>U: 307 Temporary Redirect {url}
+        A-->>U: 307 Temporary Redirect {url}
     else code not found
-        H-->>U: 404 Not Found
+        A-->>U: 404 Not Found
     end
 ```
 
