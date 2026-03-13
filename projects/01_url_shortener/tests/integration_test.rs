@@ -14,12 +14,21 @@ struct TestApp {
     manager: Arc<AppManager>,
 }
 
+use tokio::sync::OnceCell;
+
+static DB_INITIALIZED: OnceCell<()> = OnceCell::const_new();
+
 impl TestApp {
     async fn setup() -> Self {
         let database_url = std::env::var("DATABASE_URL")
             .unwrap_or_else(|_| "postgres://user:password@localhost:5432/url_shortener_test".to_string());
         
-        let (router, manager) = create_app(&database_url).await.expect("Failed to create app");
+        let mut init = false;
+        DB_INITIALIZED.get_or_init(|| async {
+            init = true;
+        }).await;
+
+        let (router, manager) = create_app(&database_url, init).await.expect("Failed to create app");
 
         Self { router, manager }
     }

@@ -13,7 +13,7 @@ async fn main() -> anyhow::Result<()> {
     let database_url = env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://user:password@localhost:5432/url_shortener".to_string());
     
-    let (app, _manager) = create_app(&database_url).await?;
+    let (app, _manager) = create_app(&database_url, true).await?;
 
     let addr = "0.0.0.0:8080";
     let listener = tokio::net::TcpListener::bind(addr).await?;
