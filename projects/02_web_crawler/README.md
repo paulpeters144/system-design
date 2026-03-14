@@ -29,30 +29,36 @@ graph TD
 
     subgraph L2 [Orchestration Layer]
         M[App Manager]
-        F[Frontier - Bloom Filter]
+        F[Frontier <br> Bloom Filter]
+        M --> F
     end
 
-    subgraph L3 [Strategy Layer - Engines]
+    subgraph L3 [Engine Layer]
         direction LR
-        CE[Crawl Engine]
-        EE[Extraction Engine]
-        SE[Scoring Engine]
+        CE[Crawl<br>Engine] ~~~ EE[Extraction<br>Engine] ~~~ SE[Scoring<br>Engine]
     end
 
     subgraph L4 [Access Layer]
+        direction LR
         R[(Data Repository)]
         H[HTTP Client]
     end
 
-    W((Internet/Websites))
-
+    %% Pyramid Connections
     C --> M
     M --> L3
-    M --> F
-    M --> R
-    M --> H
-    H <-->|Fetch HTML| W
+    M --> L4
+
+    %% Data Flow
     F -- Warm-up --> R
+    W((Internet/Websites))
+    H <-->|Fetch HTML| W
+
+    %% Styling
+    style L1 fill:#f9f9f9,stroke:#333
+    style L2 fill:#e1f5fe,stroke:#01579b
+    style L3 fill:#fff3e0,stroke:#e65100
+    style L4 fill:#f1f8e9,stroke:#33691e
 ```
 
 #### Crawl Loop Flow
