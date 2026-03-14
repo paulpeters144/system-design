@@ -11,15 +11,16 @@ impl ScoringEngine for WealthIntentScorer {
         let high_intent_keywords = vec!["Probate", "Inheritance", "Trust", "Estate", "Succession"];
 
         for keyword in high_intent_keywords {
-            if lead
+            let full_name_contains = lead
                 .full_name
                 .to_lowercase()
-                .contains(&keyword.to_lowercase())
-                || lead
-                    .signals
-                    .iter()
-                    .any(|s| s.to_lowercase().contains(&keyword.to_lowercase()))
-            {
+                .contains(&keyword.to_lowercase());
+            let signals_contains = lead
+                .signals
+                .iter()
+                .any(|s| s.to_lowercase().contains(&keyword.to_lowercase()));
+
+            if full_name_contains || signals_contains {
                 score += 25;
                 signals.push(format!("keyword_{}", keyword.to_lowercase()));
             }
