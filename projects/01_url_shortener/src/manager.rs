@@ -107,8 +107,4 @@ impl AppManager {
             error!("Failed to record analytics: {}", e);
         }
     }
-
-    pub async fn init_db(&self) -> Result<()> {
-        self.repo.init_db().await
-    }
 }

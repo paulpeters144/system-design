@@ -27,7 +27,6 @@ pub struct UrlRecord {
 pub trait UrlRepository: Send + Sync {
     async fn save(&self, long_url: &str, short_code: &str) -> Result<UrlRecord, RepositoryError>;
     async fn get_by_code(&self, short_code: &str) -> Result<Option<UrlRecord>>;
-    async fn init_db(&self) -> Result<()>;
 }
 
 pub struct PostgresUrlRepository {
@@ -42,44 +41,6 @@ impl PostgresUrlRepository {
 
 #[async_trait::async_trait]
 impl UrlRepository for PostgresUrlRepository {
-    async fn init_db(&self) -> Result<()> {
-        let mut tx = self.pool.begin().await?;
-
-        // Use an advisory lock to prevent race conditions when multiple tests/processes
-        // try to initialize the database simultaneously.
-        // 12345678 is an arbitrary 64-bit integer for the lock key.
-        // This lock is automatically released when the transaction ends.
-        sqlx::query("SELECT pg_advisory_xact_lock(12345678)")
-            .execute(&mut *tx)
-            .await?;
-
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS urls (
-                id BIGSERIAL PRIMARY KEY,
-                long_url TEXT NOT NULL,
-                short_code TEXT NOT NULL UNIQUE,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )",
-        )
-        .execute(&mut *tx)
-        .await?;
-
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS url_analytics (
-                id BIGSERIAL PRIMARY KEY,
-                url_id BIGINT REFERENCES urls(id),
-                ip_address TEXT,
-                user_agent TEXT,
-                clicked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )",
-        )
-        .execute(&mut *tx)
-        .await?;
-
-        tx.commit().await?;
-        Ok(())
-    }
-
     async fn save(&self, long_url: &str, short_code: &str) -> Result<UrlRecord, RepositoryError> {
         let record = sqlx::query_as::<_, UrlRecord>(
             "INSERT INTO urls (long_url, short_code) 
@@ -92,9 +53,10 @@ impl UrlRepository for PostgresUrlRepository {
         .await
         .map_err(|e| {
             if let Some(pg_err) = e.as_database_error()
-                && pg_err.code().is_some_and(|c| c == "23505") {
-                    return RepositoryError::Conflict(short_code.to_string());
-                }
+                && pg_err.code().is_some_and(|c| c == "23505")
+            {
+                return RepositoryError::Conflict(short_code.to_string());
+            }
             RepositoryError::Database(e)
         })?;
 

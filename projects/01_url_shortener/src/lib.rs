@@ -46,7 +46,7 @@ pub async fn create_app(config: AppConfig) -> anyhow::Result<Router> {
     let manager = Arc::new(AppManager::new(repo, cache, analytics));
 
     if init {
-        manager.init_db().await?;
+        sqlx::migrate!("./migrations").run(&pool).await?;
     }
 
     let (router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
