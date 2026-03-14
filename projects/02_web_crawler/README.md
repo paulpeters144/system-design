@@ -61,41 +61,79 @@ graph TD
     style L4 fill:#f1f8e9,stroke:#33691e
 ```
 
-#### Crawl Loop Flow
-The crawler operates in an iterative loop, processing batches of URLs while respecting domain-specific politeness constraints.
+### Operational Workflows
+
+#### 1. Seed & Warm-up
+This workflow handles the initial entry of URLs into the system and prepares the application for high-performance deduplication. When the app starts, it "warms up" the Bloom Filter by loading all previously crawled URL hashes from the database into memory.
+*   **Outcome**: The crawler has a verified starting point and is ready to instantly filter millions of duplicate links without hitting the database.
+
+```mermaid
+sequenceDiagram
+    participant U as User/CLI
+    participant R as Repository
+    participant F as Frontier
+    
+    U->>R: seed_url(url, priority)
+    Note over R,F: On startup
+    R->>F: load_all_hashes()
+    F-->>R: ready
+```
+
+#### 2. Batch Orchestration & Politeness
+The orchestrator manages the high-level crawl loop, selecting batches of work and enforcing "politeness" to avoid overwhelming target servers. It checks domain-specific metrics (like crawl delays and error rates) before allowing a fetch to proceed.
+*   **Outcome**: A coordinated stream of URLs that are safe to crawl without violating `robots.txt` or server constraints.
+
 ```mermaid
 sequenceDiagram
     participant M as AppManager
-    participant F as Frontier
-    participant H as HttpClient
-    participant E as Extraction
-    participant S as Scoring
     participant R as Repository
-
+    
     loop Batch Cycle
-        M->>M: select_batch(limit)
+        M->>R: select_batch(limit)
+        R-->>M: url_list
         loop for each URL
             M->>R: can_crawl(domain)?
-            R-->>M: status
-            alt allowed
-                M->>H: GET url
-                H-->>M: HTML
-                M->>E: extract(html)
-                E-->>M: raw_leads, links
-                loop for each raw_lead
-                    M->>S: score(raw_lead)
-                    S-->>M: score
-                    M->>R: upsert_lead(lead)
-                end
-                loop for each link
-                    M->>F: contains(link_hash)?
-                    F-->>M: false
-                    M->>F: add(link_hash)
-                    M->>R: add_to_frontier(link)
-                end
-                M->>R: mark_completed(url_hash)
-                M->>R: update_metrics(domain)
-            end
+            R-->>M: status (allowed/wait)
+            Note right of M: If allowed, proceed to processing
+            M->>R: mark_completed(url_hash)
+            M->>R: update_metrics(domain)
+        end
+    end
+```
+
+#### 3. Content Processing & Discovery
+This is the core "worker" logic where data is actually extracted and the crawl frontier expands. It fetches HTML, uses the configured engines to find and score leads, and discovers new links which are then deduplicated via the Bloom Filter.
+*   **Outcome**: High-quality leads are saved to the database with intent scores, and the system discovers unique new URLs to continue the crawl.
+
+```mermaid
+sequenceDiagram
+    participant M as AppManager
+    participant H as HttpClient
+    participant E as Engines (Extract/Score)
+    participant F as Frontier (Bloom)
+    participant R as Repository
+
+    M->>H: GET url
+    H-->>M: HTML
+    M->>E: extract(html)
+    E-->>M: raw_leads, new_links
+    
+    rect rgb(240, 240, 240)
+        Note over M,R: Lead Processing
+        loop for each lead
+            M->>E: score(lead)
+            E-->>M: score
+            M->>R: upsert_lead(lead, score)
+        end
+    end
+
+    rect rgb(240, 240, 240)
+        Note over M,F: Link Discovery
+        loop for each link
+            M->>F: contains(hash)?
+            F-->>M: false
+            M->>F: add(hash)
+            M->>R: add_to_frontier(link)
         end
     end
 ```
