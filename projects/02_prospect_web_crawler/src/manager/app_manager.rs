@@ -147,7 +147,7 @@ impl AppManager {
         // 2. Robots.txt fetch if missing or older than 24 hours
         let robots_stale = metrics
             .robots_txt_fetched_at
-            .map_or(true, |ts| (Utc::now() - ts).num_hours() > 24);
+            .is_none_or(|ts| (Utc::now() - ts).num_hours() > 24);
 
         if robots_stale {
             let parsed_url = reqwest::Url::parse(url)?;
@@ -171,15 +171,17 @@ impl AppManager {
                     metrics.robots_txt_content = None;
                 }
             }
-            
+
             // Parse crawl-delay if content is available
             if let Some(ref content) = metrics.robots_txt_content {
                 if let Some(delay) = self.parse_crawl_delay(content, "LeadBot") {
                     metrics.crawl_delay_ms = delay as i32;
                 }
             }
-            
-            self.metrics_repo.upsert_domain_metrics(metrics.clone()).await?;
+
+            self.metrics_repo
+                .upsert_domain_metrics(metrics.clone())
+                .await?;
         }
 
         // 3. Robots.txt check rules
@@ -421,7 +423,12 @@ mod tests {
             .expect_get_with_status()
             .with(eq(url.clone()))
             .times(1)
-            .returning(|_| Ok((200, "<html><body><h1>Test Lead</h1></body></html>".to_string())));
+            .returning(|_| {
+                Ok((
+                    200,
+                    "<html><body><h1>Test Lead</h1></body></html>".to_string(),
+                ))
+            });
 
         mock_lead_repo
             .expect_upsert_lead()

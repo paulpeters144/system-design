@@ -1,6 +1,6 @@
 use crate::engine::CrawlEngine;
-use crate::repository::FrontierRepo;
 use crate::repository::models::QueuedUrl;
+use crate::repository::FrontierRepo;
 use anyhow::Result;
 use async_trait::async_trait;
 use std::sync::Arc;

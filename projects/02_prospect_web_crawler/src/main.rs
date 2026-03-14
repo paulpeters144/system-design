@@ -5,9 +5,9 @@ use sqlx::PgPool;
 use std::sync::Arc;
 
 use prospect_web_crawler::commands::{
-    crawl::{CrawlArgs, handle_crawl},
-    leads::{LeadsArgs, handle_leads},
-    seed::{SeedArgs, handle_seed},
+    crawl::{handle_crawl, CrawlArgs},
+    leads::{handle_leads, LeadsArgs},
+    seed::{handle_seed, SeedArgs},
 };
 
 #[derive(FromArgs, Debug)]

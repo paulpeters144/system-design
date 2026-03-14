@@ -1,6 +1,6 @@
+use crate::repository::models::{CrawlStatus, QueuedUrl};
 use crate::repository::FrontierRepo;
 use crate::repository::PostgresRepository;
-use crate::repository::models::{CrawlStatus, QueuedUrl};
 use argh::FromArgs;
 use chrono::Utc;
 use sha2::{Digest, Sha256};
