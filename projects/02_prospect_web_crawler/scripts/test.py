@@ -45,7 +45,7 @@ def main():
     db_exists_cmd = [
         "docker", "exec", container_id, 
         "psql", "-U", "postgres", "-d", "postgres", "-tAc", 
-        "SELECT 1 FROM pg_database WHERE datname='web_crawler_test'"
+        "SELECT 1 FROM pg_database WHERE datname='prospect_web_crawler_test'"
     ]
     db_exists_result = subprocess.run(db_exists_cmd, capture_output=True, text=True)
     db_exists = db_exists_result.stdout.strip()
@@ -55,14 +55,14 @@ def main():
         create_db_cmd = [
             "docker", "exec", container_id,
             "psql", "-U", "postgres", "-d", "postgres", "-c",
-            "CREATE DATABASE web_crawler_test"
+            "CREATE DATABASE prospect_web_crawler_test"
         ]
         subprocess.run(create_db_cmd, check=True)
     else:
         print("Test database already exists.")
         
     env = os.environ.copy()
-    env["DATABASE_URL"] = "postgres://postgres:password@localhost:5433/web_crawler_test"
+    env["DATABASE_URL"] = "postgres://postgres:password@localhost:5433/prospect_web_crawler_test"
     
     print("Running tests...")
     try:

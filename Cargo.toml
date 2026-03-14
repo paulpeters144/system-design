@@ -1,6 +1,7 @@
 [workspace]
 members = [
-    "projects/*",
+    "projects/01_url_shortener",
+    "projects/02_prospect_web_crawler",
     "common",
 ]
 resolver = "2"

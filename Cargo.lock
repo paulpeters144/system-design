@@ -1840,6 +1840,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "prospect_web_crawler"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "argh",
+ "async-trait",
+ "bloomfilter",
+ "chrono",
+ "common",
+ "dotenvy",
+ "hex",
+ "mockall",
+ "regex",
+ "reqwest",
+ "scraper",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sqlx",
+ "thiserror",
+ "tokio",
+ "tokio-test",
+ "tracing",
+ "tracing-subscriber",
+ "wiremock",
+]
+
+[[package]]
 name = "quinn"
 version = "0.11.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3426,34 +3454,6 @@ checksum = "5a6580f308b1fad9207618087a65c04e7a10bc77e02c8e84e9b00dd4b12fa0bb"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "web_crawler"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "argh",
- "async-trait",
- "bloomfilter",
- "chrono",
- "common",
- "dotenvy",
- "hex",
- "mockall",
- "regex",
- "reqwest",
- "scraper",
- "serde",
- "serde_json",
- "sha2",
- "sqlx",
- "thiserror",
- "tokio",
- "tokio-test",
- "tracing",
- "tracing-subscriber",
- "wiremock",
 ]
 
 [[package]]

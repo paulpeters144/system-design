@@ -9,7 +9,7 @@ def main():
     
     env = os.environ.copy()
     # Note: port 5433 is mapped to 5432 in docker-compose.yml
-    env["DATABASE_URL"] = "postgres://postgres:password@localhost:5433/web_crawler"
+    env["DATABASE_URL"] = "postgres://postgres:password@localhost:5433/prospect_web_crawler"
     
     cmd = ["cargo", "run"]
     if len(sys.argv) > 1:

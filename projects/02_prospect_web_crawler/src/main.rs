@@ -4,13 +4,13 @@ use dotenvy::dotenv;
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use std::sync::Arc;
-use web_crawler::engine::AppManager;
-use web_crawler::engine::crawl::{DiscoveryEngine, LeadFocusedEngine};
-use web_crawler::engine::extraction::{RegexExtractor, SelectorExtractor};
-use web_crawler::engine::scoring::{ProfessionalReferralScorer, WealthIntentScorer};
-use web_crawler::repository::PostgresRepository;
-use web_crawler::repository::models::{CrawlStatus, QueuedUrl};
-use web_crawler::repository::{FrontierRepo, LeadRepo};
+use prospect_web_crawler::engine::AppManager;
+use prospect_web_crawler::engine::crawl::{DiscoveryEngine, LeadFocusedEngine};
+use prospect_web_crawler::engine::extraction::{RegexExtractor, SelectorExtractor};
+use prospect_web_crawler::engine::scoring::{ProfessionalReferralScorer, WealthIntentScorer};
+use prospect_web_crawler::repository::PostgresRepository;
+use prospect_web_crawler::repository::models::{CrawlStatus, QueuedUrl};
+use prospect_web_crawler::repository::{FrontierRepo, LeadRepo};
 
 #[derive(FromArgs, Debug)]
 /// Trust-Focused Lead Generator Crawler
@@ -90,19 +90,19 @@ async fn main() -> anyhow::Result<()> {
     let repository = Arc::new(PostgresRepository::new(pool));
 
     let frontier = Arc::new(
-        web_crawler::engine::crawl::frontier::Frontier::new(repository.clone(), 1000000, 0.01)
+        prospect_web_crawler::engine::crawl::frontier::Frontier::new(repository.clone(), 1000000, 0.01)
             .await?,
     );
 
     match args.nested {
         Subcommands::Crawl(crawl_args) => {
-            let crawl_engine: Arc<dyn web_crawler::engine::CrawlEngine> =
+            let crawl_engine: Arc<dyn prospect_web_crawler::engine::CrawlEngine> =
                 match crawl_args.engine.as_str() {
                     "discovery" => Arc::new(DiscoveryEngine::new(repository.clone())),
                     _ => Arc::new(LeadFocusedEngine::new(repository.clone())),
                 };
 
-            let extraction_engine: Arc<dyn web_crawler::engine::ExtractionEngine> =
+            let extraction_engine: Arc<dyn prospect_web_crawler::engine::ExtractionEngine> =
                 match crawl_args.extractor.as_str() {
                     "selector" => Arc::new(SelectorExtractor {
                         name_selector: "h1".to_string(),
@@ -111,7 +111,7 @@ async fn main() -> anyhow::Result<()> {
                     _ => Arc::new(RegexExtractor),
                 };
 
-            let scoring_engine: Arc<dyn web_crawler::engine::ScoringEngine> =
+            let scoring_engine: Arc<dyn prospect_web_crawler::engine::ScoringEngine> =
                 match crawl_args.scorer.as_str() {
                     "referral" => Arc::new(ProfessionalReferralScorer),
                     _ => Arc::new(WealthIntentScorer),
@@ -125,7 +125,7 @@ async fn main() -> anyhow::Result<()> {
                 repository.clone(), // FrontierRepo
                 repository.clone(), // MetricsRepo
                 frontier,
-                Arc::new(web_crawler::engine::ReqwestClient::new()),
+                Arc::new(prospect_web_crawler::engine::ReqwestClient::new()),
             );
 
             tracing::info!(

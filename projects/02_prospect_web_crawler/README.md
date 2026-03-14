@@ -1,4 +1,4 @@
-# 02 Web Crawler
+# 02 Prospect Web Crawler
 
 A high-performance, modular web crawler built with Rust, designed for lead generation and automated discovery with a focus on politeness and intelligent scoring.
 
@@ -184,7 +184,7 @@ The easiest way to run the project is using the provided `just` commands, which 
    ```
 2. Set the database URL:
    ```powershell
-   $env:DATABASE_URL="postgres://postgres:password@localhost:5433/web_crawler"
+   $env:DATABASE_URL="postgres://postgres:password@localhost:5433/prospect_web_crawler"
    ```
 3. Run commands via cargo:
    ```powershell
