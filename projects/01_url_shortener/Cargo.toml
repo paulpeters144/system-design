@@ -23,6 +23,7 @@ tracing-subscriber = "0.3.22"
 utoipa = { version = "5.0", features = ["axum_extras"] }
 utoipa-axum = "0.2"
 utoipa-swagger-ui = { version = "9", features = ["axum"] }
+dotenvy = "0.15.7"
 
 [dev-dependencies]
 http-body-util = "0.1.3"

@@ -3192,6 +3192,7 @@ dependencies = [
  "axum",
  "chrono",
  "common",
+ "dotenvy",
  "http-body-util",
  "nanoid",
  "redis",
