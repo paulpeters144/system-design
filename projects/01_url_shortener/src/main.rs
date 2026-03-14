@@ -11,23 +11,24 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let database_url = env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://postgres:password@localhost:5432/system_design".to_string());
+    let database_url = env::var("DATABASE_URL").unwrap_or_else(|_| {
+        "postgres://postgres:password@localhost:5432/system_design".to_string()
+    });
 
-    let redis_url = env::var("REDIS_URL")
-        .unwrap_or_else(|_| "redis://localhost:6379/".to_string());
+    let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379/".to_string());
 
-    let (app, _manager) = create_app(&database_url, &redis_url, true).await?;
+    let (app, _) = create_app(&database_url, &redis_url, true).await?;
 
     let addr = "0.0.0.0:3005";
     let listener = tokio::net::TcpListener::bind(addr).await?;
     tracing::info!("listening on {}", addr);
-    
+
     // Use into_make_service_with_connect_info to get client IP
     axum::serve(
-        listener, 
-        app.into_make_service_with_connect_info::<SocketAddr>()
-    ).await?;
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await?;
 
     Ok(())
 }

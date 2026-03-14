@@ -1,8 +1,10 @@
-use crate::access::{UrlRepository, CacheRepository, AnalyticsRepository, RepositoryError, UrlRecord};
+use crate::access::{
+    AnalyticsRepository, CacheRepository, RepositoryError, UrlRecord, UrlRepository,
+};
 use anyhow::{Result, anyhow};
 use nanoid::nanoid;
 use std::sync::Arc;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 pub struct AppManager {
     repo: Arc<dyn UrlRepository>,
@@ -16,14 +18,18 @@ impl AppManager {
         cache: Arc<dyn CacheRepository>,
         analytics: Arc<dyn AnalyticsRepository>,
     ) -> Self {
-        Self { repo, cache, analytics }
+        Self {
+            repo,
+            cache,
+            analytics,
+        }
     }
 
     pub async fn shorten_url(&self, long_url: &str) -> Result<String> {
         if long_url.is_empty() {
             return Err(anyhow!("URL cannot be empty"));
         }
-        
+
         let mut attempts = 0;
         let max_attempts = 3;
 
@@ -36,13 +42,19 @@ impl AppManager {
                 }
                 Err(RepositoryError::Conflict(_)) => {
                     attempts += 1;
-                    warn!("Collision detected for short code, retrying (attempt {})", attempts);
+                    warn!(
+                        "Collision detected for short code, retrying (attempt {})",
+                        attempts
+                    );
                 }
                 Err(e) => return Err(e.into()),
             }
         }
 
-        Err(anyhow!("Failed to generate unique short code after {} attempts", max_attempts))
+        Err(anyhow!(
+            "Failed to generate unique short code after {} attempts",
+            max_attempts
+        ))
     }
 
     pub async fn get_long_url(&self, short_code: &str) -> Result<Option<String>> {
@@ -58,7 +70,7 @@ impl AppManager {
 
         // 2. Check DB
         let record = self.repo.get_by_code(short_code).await?;
-        
+
         if let Some(ref r) = record {
             // 3. Populate cache
             if let Err(e) = self.cache.set(short_code, &r.long_url, 3600).await {
@@ -84,7 +96,10 @@ impl AppManager {
                     }
                     std::net::IpAddr::V6(v6) => {
                         let segments = v6.segments();
-                        format!("{:x}:{:x}:{:x}:{:x}::", segments[0], segments[1], segments[2], segments[3])
+                        format!(
+                            "{:x}:{:x}:{:x}:{:x}::",
+                            segments[0], segments[1], segments[2], segments[3]
+                        )
                     }
                 }
             } else {

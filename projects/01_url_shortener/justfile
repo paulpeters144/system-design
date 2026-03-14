@@ -1,5 +1,12 @@
 set shell := ["powershell.exe", "-c"]
 
+# Run the application
+run:
+    docker compose up -d postgres redis
+    $env:DATABASE_URL="postgres://postgres:password@localhost:5432/system_design"; \
+    $env:REDIS_URL="redis://localhost:6379/"; \
+    cargo run
+
 # Shortcut for run
 test:
     docker compose up -d postgres redis
@@ -23,16 +30,5 @@ test:
     $env:REDIS_URL="redis://localhost:6379/"; \
     cargo nextest run
 
-# Run the application
-run:
-    docker compose up -d postgres redis
-    $env:DATABASE_URL="postgres://postgres:password@localhost:5432/system_design"; \
-    $env:REDIS_URL="redis://localhost:6379/"; \
-    cargo run
-
-# Nuke all docker resources for this project
-nuke:
-    docker compose down -v --remove-orphans
-
-# Alias for nuke
-nukeDocker: nuke
+fmt:
+  cargo fmt

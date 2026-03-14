@@ -1,15 +1,15 @@
 use axum::{
-    body::Body,
-    http::{Request, Response, StatusCode},
     Router,
+    body::Body,
     extract::connect_info::MockConnectInfo,
+    http::{Request, Response, StatusCode},
 };
 use http_body_util::BodyExt;
-use serde_json::{json, Value};
-use tower::util::ServiceExt;
-use std::sync::Arc;
-use url_shortener::{create_app, manager::AppManager};
+use serde_json::{Value, json};
 use std::net::SocketAddr;
+use std::sync::Arc;
+use tower::util::ServiceExt;
+use url_shortener::{create_app, manager::AppManager};
 
 struct TestApp {
     router: Router,
@@ -22,19 +22,26 @@ static DB_INITIALIZED: OnceCell<()> = OnceCell::const_new();
 
 impl TestApp {
     async fn setup() -> Self {
-        let database_url = std::env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "postgres://postgres:password@localhost:5432/system_design_test".to_string());
-        
-        let redis_url = std::env::var("REDIS_URL")
-            .unwrap_or_else(|_| "redis://localhost:6379/".to_string());
-        
-        DB_INITIALIZED.get_or_init(|| async {
-            let (_router, _manager) = create_app(&database_url, &redis_url, true).await.expect("Failed to initialize database");
-            ()
-        }).await;
+        let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+            "postgres://postgres:password@localhost:5432/system_design_test".to_string()
+        });
 
-        let (router, manager) = create_app(&database_url, &redis_url, false).await.expect("Failed to create app");
-        
+        let redis_url =
+            std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379/".to_string());
+
+        DB_INITIALIZED
+            .get_or_init(|| async {
+                let (_router, _manager) = create_app(&database_url, &redis_url, true)
+                    .await
+                    .expect("Failed to initialize database");
+                ()
+            })
+            .await;
+
+        let (router, manager) = create_app(&database_url, &redis_url, false)
+            .await
+            .expect("Failed to create app");
+
         // Add MockConnectInfo so ConnectInfo extractor works in tests
         let router = router.layer(MockConnectInfo(SocketAddr::from(([127, 0, 0, 1], 1234))));
 
@@ -42,38 +49,53 @@ impl TestApp {
     }
 
     async fn seed_url(&self, long_url: &str) -> String {
-        self.manager.shorten_url(long_url).await.expect("Failed to seed URL")
+        self.manager
+            .shorten_url(long_url)
+            .await
+            .expect("Failed to seed URL")
     }
 
     async fn post_shorten(&self, long_url: &str) -> Response<Body> {
-        self.router.clone().oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/shorten")
-                .header("Content-Type", "application/json")
-                .body(Body::from(json!({ "url": long_url }).to_string()))
-                .unwrap(),
-        ).await.unwrap()
+        self.router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/shorten")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(json!({ "url": long_url }).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
     }
 
     async fn get_redirect(&self, short_code: &str) -> Response<Body> {
-        self.router.clone().oneshot(
-            Request::builder()
-                .method("GET")
-                .uri(format!("/{}", short_code))
-                .body(Body::empty())
-                .unwrap(),
-        ).await.unwrap()
+        self.router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri(format!("/{}", short_code))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
     }
 
     async fn get_endpoint(&self, uri: &str) -> Response<Body> {
-        self.router.clone().oneshot(
-            Request::builder()
-                .method("GET")
-                .uri(uri)
-                .body(Body::empty())
-                .unwrap(),
-        ).await.unwrap()
+        self.router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri(uri)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
     }
 
     async fn parse_json_body(response: Response<Body>) -> Value {
@@ -113,7 +135,7 @@ async fn test_shorten_url_returns_201_and_short_code() {
     let response = app.post_shorten(long_url).await;
 
     assert_eq!(response.status(), StatusCode::CREATED);
-    
+
     let body = TestApp::parse_json_body(response).await;
     assert!(body["short_code"].is_string());
     assert!(!body["short_code"].as_str().unwrap().is_empty());
@@ -128,10 +150,7 @@ async fn test_redirect_to_long_url() {
     let response = app.get_redirect(&short_code).await;
 
     assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
-    assert_eq!(
-        response.headers().get("location").unwrap(),
-        long_url
-    );
+    assert_eq!(response.headers().get("location").unwrap(), long_url);
 }
 
 #[tokio::test]
@@ -156,8 +175,5 @@ async fn test_shorten_then_redirect_verification() {
     // Request 2: Verify redirect
     let response = app.get_redirect(short_code).await;
     assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
-    assert_eq!(
-        response.headers().get("location").unwrap(),
-        long_url
-    );
+    assert_eq!(response.headers().get("location").unwrap(), long_url);
 }

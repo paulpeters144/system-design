@@ -1,8 +1,8 @@
-use anyhow::{Result, Context};
-use sqlx::{FromRow, PgPool};
-use serde::{Deserialize, Serialize};
+use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use redis::{AsyncCommands, Client};
+use serde::{Deserialize, Serialize};
+use sqlx::{FromRow, PgPool};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -49,7 +49,7 @@ impl UrlRepository for PostgresUrlRepository {
                 long_url TEXT NOT NULL,
                 short_code TEXT NOT NULL UNIQUE,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )"
+            )",
         )
         .execute(&self.pool)
         .await?;
@@ -61,7 +61,7 @@ impl UrlRepository for PostgresUrlRepository {
                 ip_address TEXT,
                 user_agent TEXT,
                 clicked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )"
+            )",
         )
         .execute(&self.pool)
         .await?;
@@ -73,7 +73,7 @@ impl UrlRepository for PostgresUrlRepository {
         let record = sqlx::query_as::<_, UrlRecord>(
             "INSERT INTO urls (long_url, short_code) 
              VALUES ($1, $2) 
-             RETURNING id, long_url, short_code, created_at"
+             RETURNING id, long_url, short_code, created_at",
         )
         .bind(long_url)
         .bind(short_code)
@@ -95,7 +95,7 @@ impl UrlRepository for PostgresUrlRepository {
         let record = sqlx::query_as::<_, UrlRecord>(
             "SELECT id, long_url, short_code, created_at 
              FROM urls 
-             WHERE short_code = $1"
+             WHERE short_code = $1",
         )
         .bind(short_code)
         .fetch_optional(&self.pool)
@@ -139,14 +139,24 @@ impl CacheRepository for RedisCacheRepository {
 
 #[async_trait::async_trait]
 pub trait AnalyticsRepository: Send + Sync {
-    async fn record_click(&self, url_id: i64, ip_address: Option<String>, user_agent: Option<String>) -> Result<()>;
+    async fn record_click(
+        &self,
+        url_id: i64,
+        ip_address: Option<String>,
+        user_agent: Option<String>,
+    ) -> Result<()>;
 }
 
 #[async_trait::async_trait]
 impl AnalyticsRepository for PostgresUrlRepository {
-    async fn record_click(&self, url_id: i64, ip_address: Option<String>, user_agent: Option<String>) -> Result<()> {
+    async fn record_click(
+        &self,
+        url_id: i64,
+        ip_address: Option<String>,
+        user_agent: Option<String>,
+    ) -> Result<()> {
         sqlx::query(
-            "INSERT INTO url_analytics (url_id, ip_address, user_agent) VALUES ($1, $2, $3)"
+            "INSERT INTO url_analytics (url_id, ip_address, user_agent) VALUES ($1, $2, $3)",
         )
         .bind(url_id)
         .bind(ip_address)

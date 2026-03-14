@@ -21,12 +21,16 @@ use utoipa_swagger_ui::SwaggerUi;
 )]
 struct ApiDoc;
 
-pub async fn create_app(database_url: &str, redis_url: &str, init: bool) -> anyhow::Result<(Router, Arc<AppManager>)> {
+pub async fn create_app(
+    database_url: &str,
+    redis_url: &str,
+    init: bool,
+) -> anyhow::Result<(Router, Arc<AppManager>)> {
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(database_url)
         .await?;
-    
+
     let repo = Arc::new(PostgresUrlRepository::new(pool.clone()));
     let cache = Arc::new(RedisCacheRepository::new(redis_url)?);
     let analytics = repo.clone(); // PostgresUrlRepository also implements AnalyticsRepository
