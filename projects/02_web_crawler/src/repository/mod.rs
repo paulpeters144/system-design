@@ -1,10 +1,10 @@
 pub mod models;
 
-use async_trait::async_trait;
 use anyhow::Result;
-use models::{QueuedUrl, Lead, DomainMetrics};
-use sqlx::{PgPool, Row};
+use async_trait::async_trait;
 use chrono::Utc;
+use models::{DomainMetrics, Lead, QueuedUrl};
+use sqlx::{PgPool, Row};
 
 #[async_trait]
 pub trait FrontierRepo: Send + Sync {
@@ -132,7 +132,8 @@ impl FrontierRepo for PostgresRepository {
             .fetch_all(&self.pool)
             .await?;
 
-        let hashes = rows.into_iter()
+        let hashes = rows
+            .into_iter()
             .map(|r| r.get::<Vec<u8>, _>("url_hash"))
             .collect();
 

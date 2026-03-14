@@ -1,13 +1,15 @@
-use std::sync::Arc;
-use web_crawler::engine::{AppManager, HttpClient, CrawlEngine, ExtractionEngine, ScoringEngine};
-use web_crawler::engine::crawl::frontier::Frontier;
-use web_crawler::repository::{FrontierRepo, LeadRepo, MetricsRepo};
-use web_crawler::repository::models::{QueuedUrl, RawLeadData, LeadScore, Lead, DomainMetrics, CrawlStatus};
 use anyhow::Result;
 use async_trait::async_trait;
 use chrono::Utc;
 use mockall::mock;
 use mockall::predicate::*;
+use std::sync::Arc;
+use web_crawler::engine::crawl::frontier::Frontier;
+use web_crawler::engine::{AppManager, CrawlEngine, ExtractionEngine, HttpClient, ScoringEngine};
+use web_crawler::repository::models::{
+    CrawlStatus, DomainMetrics, Lead, LeadScore, QueuedUrl, RawLeadData,
+};
+use web_crawler::repository::{FrontierRepo, LeadRepo, MetricsRepo};
 
 mock! {
     pub HttpClient {}
@@ -77,9 +79,15 @@ pub struct SimpleScoringEngine;
 impl ScoringEngine for SimpleScoringEngine {
     fn score(&self, lead: &RawLeadData) -> LeadScore {
         if lead.full_name == "John Doe" {
-            LeadScore { score: 100, signals: vec!["VIP".to_string()] }
+            LeadScore {
+                score: 100,
+                signals: vec!["VIP".to_string()],
+            }
         } else {
-            LeadScore { score: 0, signals: vec![] }
+            LeadScore {
+                score: 0,
+                signals: vec![],
+            }
         }
     }
 }
@@ -97,13 +105,12 @@ async fn test_full_crawl_lifecycle_simulation() {
     let url_hash = vec![1, 2, 3];
 
     // 1. Batch selection
-    mock_crawl.expect_select_batch()
-        .times(1)
-        .returning({
-            let url = url.clone();
-            let domain = domain.clone();
-            let url_hash = url_hash.clone();
-            move |_| Ok(vec![QueuedUrl {
+    mock_crawl.expect_select_batch().times(1).returning({
+        let url = url.clone();
+        let domain = domain.clone();
+        let url_hash = url_hash.clone();
+        move |_| {
+            Ok(vec![QueuedUrl {
                 url_hash: url_hash.clone(),
                 url: url.clone(),
                 domain: domain.clone(),
@@ -112,10 +119,12 @@ async fn test_full_crawl_lifecycle_simulation() {
                 available_at: Utc::now(),
                 depth: 1,
             }])
-        });
+        }
+    });
 
     // 2. Politeness check
-    mock_metrics_repo.expect_get_domain_metrics()
+    mock_metrics_repo
+        .expect_get_domain_metrics()
         .with(eq(domain.clone()))
         .times(2) // Once for check, once for update
         .returning(|_| Ok(None));
@@ -129,40 +138,52 @@ async fn test_full_crawl_lifecycle_simulation() {
             </body>
         </html>
     "#;
-    mock_http.expect_get()
+    mock_http
+        .expect_get()
         .with(eq(url.clone()))
         .times(1)
         .returning(move |_| Ok(html.to_string()));
 
     // 4. Lead processing
-    mock_lead_repo.expect_upsert_lead()
+    mock_lead_repo
+        .expect_upsert_lead()
         .withf(|l| l.full_name == "John Doe" && l.score == 100)
         .times(1)
         .returning(|_| Ok(()));
 
     // 5. Link extraction & Frontier update
     // We expect one new link: https://example.com/page2
-    mock_frontier_repo.expect_add_to_frontier()
+    mock_frontier_repo
+        .expect_add_to_frontier()
         .withf(|urls| urls.len() == 1 && urls[0].url == "https://example.com/page2")
         .times(1)
         .returning(|_| Ok(()));
 
     // 6. Mark completed
-    mock_frontier_repo.expect_mark_completed()
+    mock_frontier_repo
+        .expect_mark_completed()
         .with(eq(url_hash.clone()))
         .times(1)
         .returning(|_| Ok(()));
 
     // 7. Update metrics
-    mock_metrics_repo.expect_upsert_domain_metrics()
+    mock_metrics_repo
+        .expect_upsert_domain_metrics()
         .withf(|m| m.error_count == 0)
         .times(1)
         .returning(|_| Ok(()));
 
     // Setup Frontier
     let mut mock_frontier_repo_for_new = MockFrontierRepo::new();
-    mock_frontier_repo_for_new.expect_get_all_url_hashes().returning(|| Ok(vec![])).times(1);
-    let frontier = Arc::new(Frontier::new(Arc::new(mock_frontier_repo_for_new), 1000, 0.01).await.unwrap());
+    mock_frontier_repo_for_new
+        .expect_get_all_url_hashes()
+        .returning(|| Ok(vec![]))
+        .times(1);
+    let frontier = Arc::new(
+        Frontier::new(Arc::new(mock_frontier_repo_for_new), 1000, 0.01)
+            .await
+            .unwrap(),
+    );
 
     let manager = AppManager::new(
         Arc::new(mock_crawl),
@@ -175,5 +196,8 @@ async fn test_full_crawl_lifecycle_simulation() {
         Arc::new(mock_http),
     );
 
-    manager.run_once(1).await.expect("Full crawl iteration failed");
+    manager
+        .run_once(1)
+        .await
+        .expect("Full crawl iteration failed");
 }

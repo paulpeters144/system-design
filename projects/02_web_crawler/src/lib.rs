@@ -1,9 +1,9 @@
 pub mod engine;
 pub mod repository;
 
-use std::sync::Arc;
-use repository::{FrontierRepo, LeadRepo};
 use engine::AppManager;
+use repository::{FrontierRepo, LeadRepo};
+use std::sync::Arc;
 
 pub struct AppState {
     pub manager: Arc<AppManager>,

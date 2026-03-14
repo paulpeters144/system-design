@@ -91,11 +91,10 @@ impl UrlRepository for PostgresUrlRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(|e| {
-            if let Some(pg_err) = e.as_database_error() {
-                if pg_err.code().map_or(false, |c| c == "23505") {
+            if let Some(pg_err) = e.as_database_error()
+                && pg_err.code().is_some_and(|c| c == "23505") {
                     return RepositoryError::Conflict(short_code.to_string());
                 }
-            }
             RepositoryError::Database(e)
         })?;
 

@@ -1,10 +1,10 @@
 pub mod frontier;
 
-use async_trait::async_trait;
 use crate::engine::CrawlEngine;
 use crate::repository::FrontierRepo;
 use crate::repository::models::QueuedUrl;
 use anyhow::Result;
+use async_trait::async_trait;
 use std::sync::Arc;
 
 pub struct LeadFocusedEngine {

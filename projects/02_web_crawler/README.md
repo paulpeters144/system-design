@@ -154,8 +154,30 @@ sequenceDiagram
 ### Prerequisites
 - Docker and Docker Compose
 - Rust toolchain (v1.85+)
+- [Just](https://github.com/casey/just) task runner
 
 ### Running the Project
+
+The easiest way to run the project is using the provided `just` commands, which handle infrastructure and environment variables automatically.
+
+1.  **Seed the crawler** with a starting URL:
+    ```powershell
+    just seed "https://news.ycombinator.com"
+    ```
+2.  **Run the crawler**:
+    ```powershell
+    just crawl --batch 10 --delay 5
+    ```
+3.  **View leads**:
+    ```powershell
+    just leads --limit 50
+    ```
+4.  **Run tests**:
+    ```powershell
+    just test
+    ```
+
+### Manual Execution (Alternative)
 1. Start the database:
    ```powershell
    docker-compose up -d
@@ -164,34 +186,31 @@ sequenceDiagram
    ```powershell
    $env:DATABASE_URL="postgres://postgres:password@localhost:5433/web_crawler"
    ```
-3. Seed the crawler with a starting URL:
+3. Run commands via cargo:
    ```powershell
    cargo run -- seed "https://news.ycombinator.com"
-   ```
-4. Run the crawler:
-   ```powershell
    cargo run -- crawl --batch 10 --delay 5
    ```
 
 ## Usage
 
-The crawler supports several subcommands via the CLI:
+The crawler supports several subcommands via `just` (which forwards them to the CLI):
 
 ### Seed URLs
 Add entry points to the crawl frontier:
 ```powershell
-cargo run -- seed "https://example.com" --priority 5
+just seed "https://example.com" --priority 5
 ```
 
 ### Execute Crawl
 Start the worker loop with specific engines:
 ```powershell
 # Options: --engine [lead|discovery], --extractor [regex|selector], --scorer [wealth|referral]
-cargo run -- crawl --engine lead --extractor regex --scorer wealth --batch 5
+just crawl --engine lead --extractor regex --scorer wealth --batch 5
 ```
 
 ### View Discovered Leads
 Query the database for highly-scored leads:
 ```powershell
-cargo run -- leads --limit 50
+just leads --limit 50
 ```

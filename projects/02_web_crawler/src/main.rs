@@ -1,15 +1,15 @@
-use std::sync::Arc;
-use sqlx::PgPool;
-use web_crawler::repository::PostgresRepository;
-use web_crawler::engine::AppManager;
-use web_crawler::engine::crawl::{LeadFocusedEngine, DiscoveryEngine};
-use web_crawler::engine::extraction::{RegexExtractor, SelectorExtractor};
-use web_crawler::engine::scoring::{WealthIntentScorer, ProfessionalReferralScorer};
-use dotenvy::dotenv;
 use argh::FromArgs;
-use sha2::{Sha256, Digest};
-use web_crawler::repository::models::{QueuedUrl, CrawlStatus};
 use chrono::Utc;
+use dotenvy::dotenv;
+use sha2::{Digest, Sha256};
+use sqlx::PgPool;
+use std::sync::Arc;
+use web_crawler::engine::AppManager;
+use web_crawler::engine::crawl::{DiscoveryEngine, LeadFocusedEngine};
+use web_crawler::engine::extraction::{RegexExtractor, SelectorExtractor};
+use web_crawler::engine::scoring::{ProfessionalReferralScorer, WealthIntentScorer};
+use web_crawler::repository::PostgresRepository;
+use web_crawler::repository::models::{CrawlStatus, QueuedUrl};
 use web_crawler::repository::{FrontierRepo, LeadRepo};
 
 #[derive(FromArgs, Debug)]
@@ -88,32 +88,34 @@ async fn main() -> anyhow::Result<()> {
     sqlx::migrate!("./migrations").run(&pool).await?;
 
     let repository = Arc::new(PostgresRepository::new(pool));
-    
-    let frontier = Arc::new(web_crawler::engine::crawl::frontier::Frontier::new(
-        repository.clone(),
-        1000000,
-        0.01
-    ).await?);
+
+    let frontier = Arc::new(
+        web_crawler::engine::crawl::frontier::Frontier::new(repository.clone(), 1000000, 0.01)
+            .await?,
+    );
 
     match args.nested {
         Subcommands::Crawl(crawl_args) => {
-            let crawl_engine: Arc<dyn web_crawler::engine::CrawlEngine> = match crawl_args.engine.as_str() {
-                "discovery" => Arc::new(DiscoveryEngine::new(repository.clone())),
-                _ => Arc::new(LeadFocusedEngine::new(repository.clone())),
-            };
+            let crawl_engine: Arc<dyn web_crawler::engine::CrawlEngine> =
+                match crawl_args.engine.as_str() {
+                    "discovery" => Arc::new(DiscoveryEngine::new(repository.clone())),
+                    _ => Arc::new(LeadFocusedEngine::new(repository.clone())),
+                };
 
-            let extraction_engine: Arc<dyn web_crawler::engine::ExtractionEngine> = match crawl_args.extractor.as_str() {
-                "selector" => Arc::new(SelectorExtractor {
-                    name_selector: "h1".to_string(),
-                    contact_selector: ".contact".to_string(),
-                }),
-                _ => Arc::new(RegexExtractor),
-            };
+            let extraction_engine: Arc<dyn web_crawler::engine::ExtractionEngine> =
+                match crawl_args.extractor.as_str() {
+                    "selector" => Arc::new(SelectorExtractor {
+                        name_selector: "h1".to_string(),
+                        contact_selector: ".contact".to_string(),
+                    }),
+                    _ => Arc::new(RegexExtractor),
+                };
 
-            let scoring_engine: Arc<dyn web_crawler::engine::ScoringEngine> = match crawl_args.scorer.as_str() {
-                "referral" => Arc::new(ProfessionalReferralScorer),
-                _ => Arc::new(WealthIntentScorer),
-            };
+            let scoring_engine: Arc<dyn web_crawler::engine::ScoringEngine> =
+                match crawl_args.scorer.as_str() {
+                    "referral" => Arc::new(ProfessionalReferralScorer),
+                    _ => Arc::new(WealthIntentScorer),
+                };
 
             let manager = AppManager::new(
                 crawl_engine,
@@ -126,8 +128,12 @@ async fn main() -> anyhow::Result<()> {
                 Arc::new(web_crawler::engine::ReqwestClient::new()),
             );
 
-            tracing::info!("Starting crawler loop with engine: {}, extractor: {}, scorer: {}", 
-                crawl_args.engine, crawl_args.extractor, crawl_args.scorer);
+            tracing::info!(
+                "Starting crawler loop with engine: {}, extractor: {}, scorer: {}",
+                crawl_args.engine,
+                crawl_args.extractor,
+                crawl_args.scorer
+            );
             loop {
                 if let Err(e) = manager.run_once(crawl_args.batch).await {
                     tracing::error!("Worker error: {:?}", e);
@@ -139,8 +145,10 @@ async fn main() -> anyhow::Result<()> {
             let mut hasher = Sha256::new();
             hasher.update(&seed_args.url);
             let url_hash = hasher.finalize().to_vec();
-            
-            let domain = seed_args.url.split('/')
+
+            let domain = seed_args
+                .url
+                .split('/')
                 .nth(2)
                 .unwrap_or("unknown")
                 .to_string();
@@ -163,7 +171,10 @@ async fn main() -> anyhow::Result<()> {
             println!("{:<40} | {:<10} | {:<20}", "Name", "Score", "Source");
             println!("{}", "-".repeat(75));
             for lead in leads {
-                println!("{:<40} | {:<10} | {:<20}", lead.full_name, lead.score, lead.source_url);
+                println!(
+                    "{:<40} | {:<10} | {:<20}",
+                    lead.full_name, lead.score, lead.source_url
+                );
             }
         }
     }

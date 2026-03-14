@@ -1,5 +1,5 @@
 use crate::engine::ScoringEngine;
-use crate::repository::models::{RawLeadData, LeadScore};
+use crate::repository::models::{LeadScore, RawLeadData};
 
 pub struct WealthIntentScorer;
 
@@ -7,18 +7,28 @@ impl ScoringEngine for WealthIntentScorer {
     fn score(&self, lead: &RawLeadData) -> LeadScore {
         let mut score = 0;
         let mut signals = Vec::new();
-        
+
         let high_intent_keywords = vec!["Probate", "Inheritance", "Trust", "Estate", "Succession"];
-        
+
         for keyword in high_intent_keywords {
-            if lead.full_name.to_lowercase().contains(&keyword.to_lowercase()) 
-                || lead.signals.iter().any(|s| s.to_lowercase().contains(&keyword.to_lowercase())) {
+            if lead
+                .full_name
+                .to_lowercase()
+                .contains(&keyword.to_lowercase())
+                || lead
+                    .signals
+                    .iter()
+                    .any(|s| s.to_lowercase().contains(&keyword.to_lowercase()))
+            {
                 score += 25;
                 signals.push(format!("keyword_{}", keyword.to_lowercase()));
             }
         }
-        
-        LeadScore { score: score.min(100), signals }
+
+        LeadScore {
+            score: score.min(100),
+            signals,
+        }
     }
 }
 
@@ -28,17 +38,24 @@ impl ScoringEngine for ProfessionalReferralScorer {
     fn score(&self, lead: &RawLeadData) -> LeadScore {
         let mut score = 0;
         let mut signals = Vec::new();
-        
+
         let prof_keywords = vec!["Attorney", "Lawyer", "CPA", "Accountant", "Firm"];
-        
+
         for keyword in prof_keywords {
-            if lead.full_name.to_lowercase().contains(&keyword.to_lowercase()) {
+            if lead
+                .full_name
+                .to_lowercase()
+                .contains(&keyword.to_lowercase())
+            {
                 score += 20;
                 signals.push(format!("prof_{}", keyword.to_lowercase()));
             }
         }
-        
-        LeadScore { score: score.min(100), signals }
+
+        LeadScore {
+            score: score.min(100),
+            signals,
+        }
     }
 }
 
@@ -56,7 +73,7 @@ mod tests {
             source_url: "http://example.com".to_string(),
             signals: vec![],
         };
-        
+
         let result = scorer.score(&lead);
         assert_eq!(result.score, 25);
         assert!(result.signals.contains(&"keyword_probate".to_string()));

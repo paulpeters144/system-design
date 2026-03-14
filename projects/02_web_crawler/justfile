@@ -1,0 +1,21 @@
+set shell := ["powershell.exe", "-c"]
+
+# Run the crawler
+crawl *args:
+    python scripts/run.py crawl {{args}}
+
+# Seed a URL
+seed url *args:
+    python scripts/run.py seed {{url}} {{args}}
+
+# List leads
+leads *args:
+    python scripts/run.py leads {{args}}
+
+# Run tests
+test:
+    python scripts/test.py
+
+# Format the code
+fmt:
+    cargo fmt
