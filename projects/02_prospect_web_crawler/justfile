@@ -7,3 +7,4 @@ dev:
 # Run tests
 test *args:
     cargo nextest run
+

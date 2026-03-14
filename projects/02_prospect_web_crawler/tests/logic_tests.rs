@@ -4,9 +4,7 @@ use chrono::Utc;
 use mockall::mock;
 use mockall::predicate::*;
 use prospect_web_crawler::engine::crawl::frontier::Frontier;
-use prospect_web_crawler::engine::{
-    CrawlEngine, ExtractionEngine, HttpClient, ScoringEngine,
-};
+use prospect_web_crawler::engine::{CrawlEngine, ExtractionEngine, HttpClient, ScoringEngine};
 use prospect_web_crawler::manager::AppManager;
 use prospect_web_crawler::repository::models::{
     CrawlStatus, DomainMetrics, Lead, LeadScore, QueuedUrl, RawLeadData,
