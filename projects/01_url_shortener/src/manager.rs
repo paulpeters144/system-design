@@ -57,12 +57,12 @@ impl AppManager {
         ))
     }
 
-    pub async fn get_long_url(&self, short_code: &str) -> Result<Option<String>> {
+    pub async fn get_record_by_code(&self, short_code: &str) -> Result<Option<UrlRecord>> {
         // 1. Check cache
         match self.cache.get(short_code).await {
-            Ok(Some(url)) => {
+            Ok(Some(record)) => {
                 info!("Cache hit for {}", short_code);
-                return Ok(Some(url));
+                return Ok(Some(record));
             }
             Ok(None) => info!("Cache miss for {}", short_code),
             Err(e) => warn!("Cache error: {}", e), // Fail open: continue to DB
@@ -73,16 +73,12 @@ impl AppManager {
 
         if let Some(ref r) = record {
             // 3. Populate cache
-            if let Err(e) = self.cache.set(short_code, &r.long_url, 3600).await {
+            if let Err(e) = self.cache.set(short_code, r, 3600).await {
                 warn!("Failed to populate cache for {}: {}", short_code, e);
             }
         }
 
-        Ok(record.map(|r| r.long_url))
-    }
-
-    pub async fn get_record_by_code(&self, short_code: &str) -> Result<Option<UrlRecord>> {
-        self.repo.get_by_code(short_code).await
+        Ok(record)
     }
 
     pub async fn record_analytics(&self, url_id: i64, ip: Option<String>, ua: Option<String>) {

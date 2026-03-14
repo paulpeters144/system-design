@@ -21,7 +21,8 @@ async fn main() -> anyhow::Result<()> {
         database_url,
         redis_url,
         init: true,
-    }).await?;
+    })
+    .await?;
 
     let addr = "0.0.0.0:3005";
     let listener = tokio::net::TcpListener::bind(addr).await?;

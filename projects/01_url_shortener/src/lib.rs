@@ -2,7 +2,7 @@ pub mod access;
 pub mod handler;
 pub mod manager;
 
-use access::{PostgresUrlRepository, RedisCacheRepository};
+use access::RedisCacheRepository;
 use axum::Router;
 use manager::AppManager;
 use sqlx::postgres::PgPoolOptions;
@@ -28,18 +28,24 @@ pub struct AppConfig {
 }
 
 pub async fn create_app(config: AppConfig) -> anyhow::Result<Router> {
+    let AppConfig {
+        database_url,
+        redis_url,
+        init,
+    } = config;
+
     let pool = PgPoolOptions::new()
         .max_connections(5)
-        .connect(config.database_url.as_str())
+        .connect(database_url.as_str())
         .await?;
 
-    let repo = Arc::new(PostgresUrlRepository::new(pool.clone()));
-    let cache = Arc::new(RedisCacheRepository::new(config.redis_url.as_str())?);
-    let analytics = repo.clone(); // PostgresUrlRepository also implements AnalyticsRepository
+    let repo = Arc::new(access::PostgresUrlRepository::new(pool.clone()));
+    let cache = Arc::new(RedisCacheRepository::new(redis_url.as_str())?);
+    let analytics = repo.clone();
 
     let manager = Arc::new(AppManager::new(repo, cache, analytics));
 
-    if config.init {
+    if init {
         manager.init_db().await?;
     }
 

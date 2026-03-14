@@ -74,11 +74,6 @@ pub async fn redirect_handler(
                 manager_clone.record_analytics(url_id, Some(ip), ua).await;
             });
 
-            // Note: manager.get_long_url handles caching, but since we needed the ID,
-            // we called get_record_by_code. To benefit from caching, we could
-            // call get_long_url if we don't care about ID, but the plan asks for analytics.
-            // If we want both, we might need to cache the whole record.
-
             Ok(Redirect::temporary(&url))
         }
         None => Err(AppError::NotFound),

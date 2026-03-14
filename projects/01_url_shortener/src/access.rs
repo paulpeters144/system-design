@@ -45,7 +45,7 @@ impl UrlRepository for PostgresUrlRepository {
     async fn init_db(&self) -> Result<()> {
         let mut tx = self.pool.begin().await?;
 
-        // Use an advisory lock to prevent race conditions when multiple tests/processes 
+        // Use an advisory lock to prevent race conditions when multiple tests/processes
         // try to initialize the database simultaneously.
         // 12345678 is an arbitrary 64-bit integer for the lock key.
         // This lock is automatically released when the transaction ends.
@@ -118,8 +118,8 @@ impl UrlRepository for PostgresUrlRepository {
 
 #[async_trait::async_trait]
 pub trait CacheRepository: Send + Sync {
-    async fn get(&self, key: &str) -> Result<Option<String>>;
-    async fn set(&self, key: &str, value: &str, ttl_secs: u64) -> Result<()>;
+    async fn get(&self, key: &str) -> Result<Option<UrlRecord>>;
+    async fn set(&self, key: &str, value: &UrlRecord, ttl_secs: u64) -> Result<()>;
 }
 
 pub struct RedisCacheRepository {
@@ -135,15 +135,22 @@ impl RedisCacheRepository {
 
 #[async_trait::async_trait]
 impl CacheRepository for RedisCacheRepository {
-    async fn get(&self, key: &str) -> Result<Option<String>> {
+    async fn get(&self, key: &str) -> Result<Option<UrlRecord>> {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
         let val: Option<String> = conn.get(key).await?;
-        Ok(val)
+        match val {
+            Some(json) => {
+                let record: UrlRecord = serde_json::from_str(&json)?;
+                Ok(Some(record))
+            }
+            None => Ok(None),
+        }
     }
 
-    async fn set(&self, key: &str, value: &str, ttl_secs: u64) -> Result<()> {
+    async fn set(&self, key: &str, value: &UrlRecord, ttl_secs: u64) -> Result<()> {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
-        let _: () = conn.set_ex(key, value, ttl_secs).await?;
+        let json = serde_json::to_string(value)?;
+        let _: () = conn.set_ex(key, json, ttl_secs).await?;
         Ok(())
     }
 }
