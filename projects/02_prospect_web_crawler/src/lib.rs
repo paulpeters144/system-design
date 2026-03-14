@@ -1,7 +1,8 @@
 pub mod engine;
+pub mod manager;
 pub mod repository;
 
-use engine::AppManager;
+use manager::AppManager;
 use repository::{FrontierRepo, LeadRepo};
 use std::sync::Arc;
 

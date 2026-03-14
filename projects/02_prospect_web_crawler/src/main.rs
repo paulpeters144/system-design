@@ -1,7 +1,7 @@
 use argh::FromArgs;
 use chrono::Utc;
 use dotenvy::dotenv;
-use prospect_web_crawler::engine::AppManager;
+use prospect_web_crawler::manager::AppManager;
 use prospect_web_crawler::engine::crawl::{DiscoveryEngine, LeadFocusedEngine};
 use prospect_web_crawler::engine::extraction::{RegexExtractor, SelectorExtractor};
 use prospect_web_crawler::engine::scoring::{ProfessionalReferralScorer, WealthIntentScorer};
