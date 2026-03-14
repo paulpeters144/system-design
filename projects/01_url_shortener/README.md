@@ -79,7 +79,7 @@ sequenceDiagram
    ```
 2. Set the environment variable:
    ```powershell
-   $env:DATABASE_URL="postgres://user:password@localhost:5432/url_shortener"
+   $env:DATABASE_URL="postgres://postgres:password@localhost:5432/system_design"
    ```
 3. Run the application:
    ```powershell

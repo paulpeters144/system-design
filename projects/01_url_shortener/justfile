@@ -9,24 +9,24 @@ test:
     if (-not $containerId) { Write-Error "Postgres container not found"; exit 1 } ; \
     $ready = $false ; \
     for ($i=0; $i -lt 30; $i++) { \
-        $status = (docker exec $containerId pg_isready -U user) ; \
+        $status = (docker exec $containerId pg_isready -U postgres) ; \
         if ($LASTEXITCODE -eq 0) { $ready = $true; break } \
         Start-Sleep -s 1; \
     } ; \
     if (-not $ready) { Write-Error "Postgres failed to become ready"; exit 1 } ; \
-    $dbExists = (docker exec $containerId psql -U user -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='url_shortener_test'") ; \
+    $dbExists = (docker exec $containerId psql -U postgres -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='system_design_test'") ; \
     if ($dbExists -ne "1") { \
         Write-Host "Creating test database..."; \
-        docker exec $containerId psql -U user -d postgres -c "CREATE DATABASE url_shortener_test"; \
+        docker exec $containerId psql -U postgres -d postgres -c "CREATE DATABASE system_design_test"; \
     } ; \
-    $env:DATABASE_URL="postgres://user:password@localhost:5432/url_shortener_test"; \
+    $env:DATABASE_URL="postgres://postgres:password@localhost:5432/system_design_test"; \
     $env:REDIS_URL="redis://localhost:6379/"; \
     cargo nextest run
 
 # Run the application
 run:
     docker compose up -d postgres redis
-    $env:DATABASE_URL="postgres://user:password@localhost:5432/url_shortener"; \
+    $env:DATABASE_URL="postgres://postgres:password@localhost:5432/system_design"; \
     $env:REDIS_URL="redis://localhost:6379/"; \
     cargo run
 

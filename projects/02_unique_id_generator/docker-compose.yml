@@ -1,9 +1,0 @@
-version: '3.8'
-
-services:
-  unique_id_generator:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-    ports:
-      - "8081:8081"

@@ -12,7 +12,7 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let database_url = env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://user:password@localhost:5432/url_shortener".to_string());
+        .unwrap_or_else(|_| "postgres://postgres:password@localhost:5432/system_design".to_string());
 
     let redis_url = env::var("REDIS_URL")
         .unwrap_or_else(|_| "redis://localhost:6379/".to_string());
