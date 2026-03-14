@@ -86,6 +86,32 @@ sequenceDiagram
    cargo run
    ```
 
+## Usage
+
+Once the application is running, you can use `curl` to interact with the API.
+
+### Shorten a URL
+To shorten a URL, send a `POST` request to the `/shorten` endpoint:
+```powershell
+curl -X POST http://localhost:3000/shorten `
+     -H "Content-Type: application/json" `
+     -d '{"url": "https://www.rust-lang.org"}'
+```
+
+**Example Response:**
+```json
+{
+  "short_code": "8c2k9f1z"
+}
+```
+
+### Follow a Redirect
+To use the shortened URL, simply open the URL in your browser (e.g., `http://localhost:3000/8c2k9f1z`) and you will be automatically redirected to the original site.
+
+### API Documentation
+You can also explore the API using the built-in Swagger UI:
+- **URL**: `http://localhost:3000/swagger-ui`
+
 ## Requirements (Original)
 - Shorten a long URL to a short link.
 - Redirect from short link to original long URL.

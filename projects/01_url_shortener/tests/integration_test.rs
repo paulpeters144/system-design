@@ -2,12 +2,14 @@ use axum::{
     body::Body,
     http::{Request, Response, StatusCode},
     Router,
+    extract::connect_info::MockConnectInfo,
 };
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use tower::util::ServiceExt;
 use std::sync::Arc;
 use url_shortener::{create_app, manager::AppManager};
+use std::net::SocketAddr;
 
 struct TestApp {
     router: Router,
@@ -23,12 +25,18 @@ impl TestApp {
         let database_url = std::env::var("DATABASE_URL")
             .unwrap_or_else(|_| "postgres://user:password@localhost:5432/url_shortener_test".to_string());
         
-        let mut init = false;
+        let redis_url = std::env::var("REDIS_URL")
+            .unwrap_or_else(|_| "redis://localhost:6379/".to_string());
+        
         DB_INITIALIZED.get_or_init(|| async {
-            init = true;
+            let (_router, _manager) = create_app(&database_url, &redis_url, true).await.expect("Failed to initialize database");
+            ()
         }).await;
 
-        let (router, manager) = create_app(&database_url, init).await.expect("Failed to create app");
+        let (router, manager) = create_app(&database_url, &redis_url, false).await.expect("Failed to create app");
+        
+        // Add MockConnectInfo so ConnectInfo extractor works in tests
+        let router = router.layer(MockConnectInfo(SocketAddr::from(([127, 0, 0, 1], 1234))));
 
         Self { router, manager }
     }

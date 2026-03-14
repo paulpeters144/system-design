@@ -1,6 +1,6 @@
 use axum::{
-    extract::{Path, State},
-    http::StatusCode,
+    extract::{Path, State, ConnectInfo},
+    http::{StatusCode, HeaderMap, header},
     response::{IntoResponse, Redirect},
     Json,
 };
@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use crate::manager::AppManager;
 use utoipa::ToSchema;
+use std::net::SocketAddr;
 
 #[derive(Deserialize, ToSchema)]
 pub struct ShortenRequest {
@@ -50,10 +51,36 @@ pub async fn shorten_handler(
 )]
 pub async fn redirect_handler(
     Path(code): Path<String>,
+    headers: HeaderMap,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     State(manager): State<Arc<AppManager>>,
 ) -> Result<impl IntoResponse, AppError> {
-    match manager.get_long_url(&code).await? {
-        Some(url) => Ok(Redirect::temporary(&url)),
+    // We need the record (not just the long URL) to get the url_id for analytics
+    let record = manager.get_record_by_code(&code).await?;
+    
+    match record {
+        Some(r) => {
+            let url = r.long_url.clone();
+            let url_id = r.id;
+            let ip = addr.ip().to_string();
+            let ua = headers
+                .get(header::USER_AGENT)
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.to_string());
+            
+            // Record analytics asynchronously
+            let manager_clone = manager.clone();
+            tokio::spawn(async move {
+                manager_clone.record_analytics(url_id, Some(ip), ua).await;
+            });
+
+            // Note: manager.get_long_url handles caching, but since we needed the ID,
+            // we called get_record_by_code. To benefit from caching, we could
+            // call get_long_url if we don't care about ID, but the plan asks for analytics.
+            // If we want both, we might need to cache the whole record.
+            
+            Ok(Redirect::temporary(&url))
+        },
         None => Err(AppError::NotFound),
     }
 }

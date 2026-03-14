@@ -8,6 +8,7 @@ common = { path = "../../common" }
 anyhow = "1.0.102"
 async-trait = "0.1.89"
 axum = { version = "0.8.8", features = ["macros"] }
+redis = { version = "0.27.6", features = ["tokio-comp"] }
 sqlx = { version = "0.8.3", features = ["runtime-tokio-rustls", "postgres", "chrono"] }
 nanoid = "0.4.0"
 serde = { version = "1.0.228", features = ["derive"] }

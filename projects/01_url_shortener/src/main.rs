@@ -1,6 +1,7 @@
-use url_shortener::create_app;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use std::env;
+use std::net::SocketAddr;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use url_shortener::create_app;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -12,13 +13,21 @@ async fn main() -> anyhow::Result<()> {
 
     let database_url = env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://user:password@localhost:5432/url_shortener".to_string());
-    
-    let (app, _manager) = create_app(&database_url, true).await?;
 
-    let addr = "0.0.0.0:8080";
+    let redis_url = env::var("REDIS_URL")
+        .unwrap_or_else(|_| "redis://localhost:6379/".to_string());
+
+    let (app, _manager) = create_app(&database_url, &redis_url, true).await?;
+
+    let addr = "0.0.0.0:3005";
     let listener = tokio::net::TcpListener::bind(addr).await?;
     tracing::info!("listening on {}", addr);
-    axum::serve(listener, app).await?;
+    
+    // Use into_make_service_with_connect_info to get client IP
+    axum::serve(
+        listener, 
+        app.into_make_service_with_connect_info::<SocketAddr>()
+    ).await?;
 
     Ok(())
 }
