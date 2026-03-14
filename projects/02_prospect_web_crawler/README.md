@@ -174,20 +174,20 @@ The easiest way to start the required infrastructure is using the provided `just
 The crawler exposes a CLI which you can interact with via `cargo run --`.
 
 ### Seed URLs
-Add entry points to the crawl frontier:
+This command adds a website link to the database so the crawler knows it needs to be visited. It assigns a priority number to the link which tells the system which websites to check first. The link is stored in the frontier table until the crawl command is run.
 ```powershell
 cargo run -- seed "https://example.com" --priority 5
 ```
 
 ### Execute Crawl
-Start the worker loop with specific engines:
+This command starts the automated process of visiting websites and saving information. It downloads the HTML code from a website, looks for specific data like contact info, and saves any new links it finds back into the database. You can choose different settings to change how the bot picks sites and how it finds information.
 ```powershell
 # Options: --engine [lead|discovery], --extractor [regex|selector], --scorer [wealth|referral]
 cargo run -- crawl --engine lead --extractor regex --scorer wealth --batch 5
 ```
 
 ### View Discovered Leads
-Query the database for highly-scored leads:
+This command pulls the saved information out of the database and shows it to you on the screen. It displays the data that was found, like names or websites, along with a quality score calculated by the bot. You can limit the list to show only a certain number of the most recent or highest-scored results.
 ```powershell
 cargo run -- leads --limit 50
 ```
