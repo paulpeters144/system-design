@@ -94,7 +94,7 @@ sequenceDiagram
    ```
 2. Set the environment variables:
    ```powershell
-   $env:DATABASE_URL="postgres://postgres:password@localhost:5432/system_design"
+   $env:DATABASE_URL="postgres://postgres:password@localhost:5432/url_shortener"
    $env:REDIS_URL="redis://localhost:6379/"
    ```
 3. Run the application:

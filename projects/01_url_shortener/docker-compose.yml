@@ -6,7 +6,7 @@ services:
     ports:
       - "3005:3005"
     environment:
-      - DATABASE_URL=postgres://postgres:password@postgres:5432/system_design
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/url_shortener
       - REDIS_URL=redis://redis:6379/
     depends_on:
       - postgres
@@ -17,7 +17,7 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=system_design
+      - POSTGRES_DB=url_shortener
     ports:
       - "5432:5432"
 

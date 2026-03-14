@@ -9,7 +9,7 @@ def main():
     subprocess.run(["docker", "compose", "up", "-d", "postgres", "redis"], check=True)
     
     env = os.environ.copy()
-    env["DATABASE_URL"] = "postgres://postgres:password@localhost:5432/system_design"
+    env["DATABASE_URL"] = "postgres://postgres:password@localhost:5432/url_shortener"
     env["REDIS_URL"] = "redis://localhost:6379/"
     
     print("Running application...")

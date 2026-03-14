@@ -17,4 +17,4 @@ services:
       - POSTGRES_PASSWORD=password
       - POSTGRES_DB=prospect_web_crawler
     ports:
-      - "5433:5432" # Use 5433 to avoid conflict with 01_url_shortener if both are up
+      - "5432:5432" # Changed back to 5432
