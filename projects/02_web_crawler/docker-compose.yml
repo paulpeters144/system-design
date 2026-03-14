@@ -1,0 +1,20 @@
+services:
+  web_crawler:
+    build:
+      context: ../../
+      dockerfile: projects/02_web_crawler/docker/Dockerfile
+    ports:
+      - "3006:3006"
+    environment:
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/web_crawler
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=web_crawler
+    ports:
+      - "5433:5432" # Use 5433 to avoid conflict with 01_url_shortener if both are up
