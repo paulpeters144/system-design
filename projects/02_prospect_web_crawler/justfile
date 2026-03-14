@@ -1,21 +1,9 @@
 set shell := ["powershell.exe", "-c"]
 
-# Run the crawler
-crawl *args:
-    python scripts/run.py crawl {{args}}
-
-# Seed a URL
-seed url *args:
-    python scripts/run.py seed {{url}} {{args}}
-
-# List leads
-leads *args:
-    python scripts/run.py leads {{args}}
+# Start the required Docker dependencies
+dev:
+    python scripts/run.py
 
 # Run tests
-test:
+test *args:
     cargo nextest run
-
-# Format the code
-fmt:
-    cargo fmt

@@ -158,59 +158,36 @@ sequenceDiagram
 
 ### Running the Project
 
-The easiest way to run the project is using the provided `just` commands, which handle infrastructure and environment variables automatically.
+The easiest way to start the required infrastructure is using the provided `just` commands.
 
-1.  **Seed the crawler** with a starting URL:
+1.  **Start dependencies** (PostgreSQL):
     ```powershell
-    just seed "https://news.ycombinator.com"
+    just dev
     ```
-2.  **Run the crawler**:
-    ```powershell
-    just crawl --batch 10 --delay 5
-    ```
-3.  **View leads**:
-    ```powershell
-    just leads --limit 50
-    ```
-4.  **Run tests**:
+3.  **Run tests**:
     ```powershell
     just test
     ```
 
-### Manual Execution (Alternative)
-1. Start the database:
-   ```powershell
-   docker-compose up -d
-   ```
-2. Set the database URL:
-   ```powershell
-   $env:DATABASE_URL="postgres://postgres:password@localhost:5433/prospect_web_crawler"
-   ```
-3. Run commands via cargo:
-   ```powershell
-   cargo run -- seed "https://news.ycombinator.com"
-   cargo run -- crawl --batch 10 --delay 5
-   ```
-
 ## Usage
 
-The crawler supports several subcommands via `just` (which forwards them to the CLI):
+The crawler exposes a CLI which you can interact with via `cargo run --`.
 
 ### Seed URLs
 Add entry points to the crawl frontier:
 ```powershell
-just seed "https://example.com" --priority 5
+cargo run -- seed "https://example.com" --priority 5
 ```
 
 ### Execute Crawl
 Start the worker loop with specific engines:
 ```powershell
 # Options: --engine [lead|discovery], --extractor [regex|selector], --scorer [wealth|referral]
-just crawl --engine lead --extractor regex --scorer wealth --batch 5
+cargo run -- crawl --engine lead --extractor regex --scorer wealth --batch 5
 ```
 
 ### View Discovered Leads
 Query the database for highly-scored leads:
 ```powershell
-just leads --limit 50
+cargo run -- leads --limit 50
 ```
