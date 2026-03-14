@@ -14,7 +14,7 @@ leads *args:
 
 # Run tests
 test:
-    python scripts/test.py
+    cargo nextest run
 
 # Format the code
 fmt:

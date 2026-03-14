@@ -1,9 +1,6 @@
 use argh::FromArgs;
 use chrono::Utc;
 use dotenvy::dotenv;
-use sha2::{Digest, Sha256};
-use sqlx::PgPool;
-use std::sync::Arc;
 use prospect_web_crawler::engine::AppManager;
 use prospect_web_crawler::engine::crawl::{DiscoveryEngine, LeadFocusedEngine};
 use prospect_web_crawler::engine::extraction::{RegexExtractor, SelectorExtractor};
@@ -11,6 +8,9 @@ use prospect_web_crawler::engine::scoring::{ProfessionalReferralScorer, WealthIn
 use prospect_web_crawler::repository::PostgresRepository;
 use prospect_web_crawler::repository::models::{CrawlStatus, QueuedUrl};
 use prospect_web_crawler::repository::{FrontierRepo, LeadRepo};
+use sha2::{Digest, Sha256};
+use sqlx::PgPool;
+use std::sync::Arc;
 
 #[derive(FromArgs, Debug)]
 /// Trust-Focused Lead Generator Crawler
@@ -90,8 +90,12 @@ async fn main() -> anyhow::Result<()> {
     let repository = Arc::new(PostgresRepository::new(pool));
 
     let frontier = Arc::new(
-        prospect_web_crawler::engine::crawl::frontier::Frontier::new(repository.clone(), 1000000, 0.01)
-            .await?,
+        prospect_web_crawler::engine::crawl::frontier::Frontier::new(
+            repository.clone(),
+            1000000,
+            0.01,
+        )
+        .await?,
     );
 
     match args.nested {

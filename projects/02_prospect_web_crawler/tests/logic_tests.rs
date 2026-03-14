@@ -3,13 +3,15 @@ use async_trait::async_trait;
 use chrono::Utc;
 use mockall::mock;
 use mockall::predicate::*;
-use std::sync::Arc;
 use prospect_web_crawler::engine::crawl::frontier::Frontier;
-use prospect_web_crawler::engine::{AppManager, CrawlEngine, ExtractionEngine, HttpClient, ScoringEngine};
+use prospect_web_crawler::engine::{
+    AppManager, CrawlEngine, ExtractionEngine, HttpClient, ScoringEngine,
+};
 use prospect_web_crawler::repository::models::{
     CrawlStatus, DomainMetrics, Lead, LeadScore, QueuedUrl, RawLeadData,
 };
 use prospect_web_crawler::repository::{FrontierRepo, LeadRepo, MetricsRepo};
+use std::sync::Arc;
 
 mock! {
     pub HttpClient {}

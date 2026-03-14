@@ -49,14 +49,16 @@ pub async fn create_app(config: AppConfig) -> anyhow::Result<Router> {
         sqlx::migrate!("./migrations").run(&pool).await?;
     }
 
+    Ok(create_router(manager))
+}
+
+pub fn create_router(manager: Arc<AppManager>) -> Router {
     let (router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
         .routes(routes!(handler::shorten_handler))
         .routes(routes!(handler::redirect_handler))
         .split_for_parts();
 
-    let app = router
+    router
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", api))
-        .with_state(manager);
-
-    Ok(app)
+        .with_state(manager)
 }

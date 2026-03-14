@@ -4,48 +4,119 @@ use axum::{
     extract::connect_info::MockConnectInfo,
     http::{Request, Response, StatusCode},
 };
+use chrono::Utc;
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
+use std::collections::HashMap;
 use std::net::SocketAddr;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use tower::util::ServiceExt;
-use url_shortener::{AppConfig, create_app};
+use url_shortener::access::{
+    AnalyticsRepository, CacheRepository, RepositoryError, UrlRecord, UrlRepository,
+};
+use url_shortener::create_router;
+use url_shortener::manager::AppManager;
+
+pub struct InMemoryUrlRepository {
+    pub records: Arc<RwLock<HashMap<String, UrlRecord>>>,
+    pub next_id: Arc<RwLock<i64>>,
+}
+
+impl InMemoryUrlRepository {
+    pub fn new() -> Self {
+        Self {
+            records: Arc::new(RwLock::new(HashMap::new())),
+            next_id: Arc::new(RwLock::new(1)),
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl UrlRepository for InMemoryUrlRepository {
+    async fn save(
+        &self,
+        long_url: &str,
+        short_code: &str,
+    ) -> anyhow::Result<UrlRecord, RepositoryError> {
+        let mut records = self.records.write().await;
+        if records.contains_key(short_code) {
+            return Err(RepositoryError::Conflict(short_code.to_string()));
+        }
+
+        let mut next_id = self.next_id.write().await;
+        let id = *next_id;
+        *next_id += 1;
+
+        let record = UrlRecord {
+            id,
+            long_url: long_url.to_string(),
+            short_code: short_code.to_string(),
+            created_at: Utc::now(),
+        };
+
+        records.insert(short_code.to_string(), record.clone());
+        Ok(record)
+    }
+
+    async fn get_by_code(&self, short_code: &str) -> anyhow::Result<Option<UrlRecord>> {
+        let records = self.records.read().await;
+        Ok(records.get(short_code).cloned())
+    }
+}
+
+pub struct InMemoryCacheRepository {
+    pub cache: Arc<RwLock<HashMap<String, UrlRecord>>>,
+}
+
+impl InMemoryCacheRepository {
+    pub fn new() -> Self {
+        Self {
+            cache: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl CacheRepository for InMemoryCacheRepository {
+    async fn get(&self, key: &str) -> anyhow::Result<Option<UrlRecord>> {
+        let cache = self.cache.read().await;
+        Ok(cache.get(key).cloned())
+    }
+
+    async fn set(&self, key: &str, value: &UrlRecord, _ttl_secs: u64) -> anyhow::Result<()> {
+        let mut cache = self.cache.write().await;
+        cache.insert(key.to_string(), value.clone());
+        Ok(())
+    }
+}
+
+pub struct InMemoryAnalyticsRepository;
+
+#[async_trait::async_trait]
+impl AnalyticsRepository for InMemoryAnalyticsRepository {
+    async fn record_click(
+        &self,
+        _url_id: i64,
+        _ip_address: Option<String>,
+        _user_agent: Option<String>,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+}
 
 struct TestApp {
     router: Router,
 }
 
-use tokio::sync::OnceCell;
-
-static DB_INITIALIZED: OnceCell<()> = OnceCell::const_new();
-
 impl TestApp {
     async fn setup() -> Self {
-        let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
-            "postgres://postgres:password@localhost:5432/system_design".to_string()
-        });
+        let repo = Arc::new(InMemoryUrlRepository::new());
+        let cache = Arc::new(InMemoryCacheRepository::new());
+        let analytics = Arc::new(InMemoryAnalyticsRepository);
 
-        let redis_url =
-            std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379/".to_string());
-
-        DB_INITIALIZED
-            .get_or_init(|| async {
-                let _ = create_app(AppConfig {
-                    database_url: database_url.clone(),
-                    redis_url: redis_url.clone(),
-                    init: true,
-                })
-                .await
-                .expect("Failed to initialize database");
-            })
-            .await;
-
-        let router = create_app(AppConfig {
-            database_url,
-            redis_url,
-            init: false,
-        })
-        .await
-        .expect("Failed to create app");
+        let manager = Arc::new(AppManager::new(repo, cache, analytics));
+        let router = create_router(manager);
 
         // Add MockConnectInfo so ConnectInfo extractor works in tests
         let socket_addr = SocketAddr::from(([127, 0, 0, 1], 1234));
