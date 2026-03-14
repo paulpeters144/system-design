@@ -21,11 +21,7 @@ use utoipa_swagger_ui::SwaggerUi;
 )]
 struct ApiDoc;
 
-pub async fn create_app(
-    database_url: &str,
-    redis_url: &str,
-    init: bool,
-) -> anyhow::Result<(Router, Arc<AppManager>)> {
+pub async fn create_app(database_url: &str, redis_url: &str, init: bool) -> anyhow::Result<Router> {
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(database_url)
@@ -48,7 +44,7 @@ pub async fn create_app(
 
     let app = router
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", api))
-        .with_state(manager.clone());
+        .with_state(manager);
 
-    Ok((app, manager))
+    Ok(app)
 }

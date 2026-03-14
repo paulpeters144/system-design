@@ -7,13 +7,11 @@ use axum::{
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use std::net::SocketAddr;
-use std::sync::Arc;
 use tower::util::ServiceExt;
-use url_shortener::{create_app, manager::AppManager};
+use url_shortener::create_app;
 
 struct TestApp {
     router: Router,
-    manager: Arc<AppManager>,
 }
 
 use tokio::sync::OnceCell;
@@ -23,7 +21,7 @@ static DB_INITIALIZED: OnceCell<()> = OnceCell::const_new();
 impl TestApp {
     async fn setup() -> Self {
         let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
-            "postgres://postgres:password@localhost:5432/system_design_test".to_string()
+            "postgres://postgres:password@localhost:5432/system_design".to_string()
         });
 
         let redis_url =
@@ -31,28 +29,28 @@ impl TestApp {
 
         DB_INITIALIZED
             .get_or_init(|| async {
-                let (_router, _manager) = create_app(&database_url, &redis_url, true)
+                let _ = create_app(&database_url, &redis_url, true)
                     .await
                     .expect("Failed to initialize database");
-                ()
             })
             .await;
 
-        let (router, manager) = create_app(&database_url, &redis_url, false)
+        let router = create_app(&database_url, &redis_url, false)
             .await
             .expect("Failed to create app");
 
         // Add MockConnectInfo so ConnectInfo extractor works in tests
-        let router = router.layer(MockConnectInfo(SocketAddr::from(([127, 0, 0, 1], 1234))));
+        let socket_addr = SocketAddr::from(([127, 0, 0, 1], 1234));
+        let mock_conn = MockConnectInfo(socket_addr);
+        let router = router.layer(mock_conn);
 
-        Self { router, manager }
+        Self { router }
     }
 
     async fn seed_url(&self, long_url: &str) -> String {
-        self.manager
-            .shorten_url(long_url)
-            .await
-            .expect("Failed to seed URL")
+        let response = self.post_shorten(long_url).await;
+        let body = Self::parse_json_body(response).await;
+        body["short_code"].as_str().unwrap().to_string()
     }
 
     async fn post_shorten(&self, long_url: &str) -> Response<Body> {

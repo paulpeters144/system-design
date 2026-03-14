@@ -17,7 +17,7 @@ async fn main() -> anyhow::Result<()> {
 
     let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379/".to_string());
 
-    let (app, _) = create_app(&database_url, &redis_url, true).await?;
+    let app = create_app(&database_url, &redis_url, true).await?;
 
     let addr = "0.0.0.0:3005";
     let listener = tokio::net::TcpListener::bind(addr).await?;

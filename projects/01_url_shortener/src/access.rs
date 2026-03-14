@@ -43,6 +43,16 @@ impl PostgresUrlRepository {
 #[async_trait::async_trait]
 impl UrlRepository for PostgresUrlRepository {
     async fn init_db(&self) -> Result<()> {
+        let mut tx = self.pool.begin().await?;
+
+        // Use an advisory lock to prevent race conditions when multiple tests/processes 
+        // try to initialize the database simultaneously.
+        // 12345678 is an arbitrary 64-bit integer for the lock key.
+        // This lock is automatically released when the transaction ends.
+        sqlx::query("SELECT pg_advisory_xact_lock(12345678)")
+            .execute(&mut *tx)
+            .await?;
+
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS urls (
                 id BIGSERIAL PRIMARY KEY,
@@ -51,7 +61,7 @@ impl UrlRepository for PostgresUrlRepository {
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )",
         )
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await?;
 
         sqlx::query(
@@ -63,9 +73,10 @@ impl UrlRepository for PostgresUrlRepository {
                 clicked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )",
         )
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await?;
 
+        tx.commit().await?;
         Ok(())
     }
 
