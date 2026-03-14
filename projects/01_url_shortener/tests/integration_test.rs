@@ -8,7 +8,7 @@ use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use std::net::SocketAddr;
 use tower::util::ServiceExt;
-use url_shortener::create_app;
+use url_shortener::{AppConfig, create_app};
 
 struct TestApp {
     router: Router,
@@ -29,15 +29,23 @@ impl TestApp {
 
         DB_INITIALIZED
             .get_or_init(|| async {
-                let _ = create_app(&database_url, &redis_url, true)
-                    .await
-                    .expect("Failed to initialize database");
+                let _ = create_app(AppConfig {
+                    database_url: database_url.clone(),
+                    redis_url: redis_url.clone(),
+                    init: true,
+                })
+                .await
+                .expect("Failed to initialize database");
             })
             .await;
 
-        let router = create_app(&database_url, &redis_url, false)
-            .await
-            .expect("Failed to create app");
+        let router = create_app(AppConfig {
+            database_url,
+            redis_url,
+            init: false,
+        })
+        .await
+        .expect("Failed to create app");
 
         // Add MockConnectInfo so ConnectInfo extractor works in tests
         let socket_addr = SocketAddr::from(([127, 0, 0, 1], 1234));

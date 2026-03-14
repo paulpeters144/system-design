@@ -1,7 +1,7 @@
 use std::env;
 use std::net::SocketAddr;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use url_shortener::create_app;
+use url_shortener::{AppConfig, create_app};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -17,7 +17,11 @@ async fn main() -> anyhow::Result<()> {
 
     let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379/".to_string());
 
-    let app = create_app(&database_url, &redis_url, true).await?;
+    let app = create_app(AppConfig {
+        database_url,
+        redis_url,
+        init: true,
+    }).await?;
 
     let addr = "0.0.0.0:3005";
     let listener = tokio::net::TcpListener::bind(addr).await?;
