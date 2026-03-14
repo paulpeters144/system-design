@@ -10,6 +10,7 @@ pub trait CrawlEngine: Send + Sync {
 #[async_trait]
 pub trait HttpClient: Send + Sync {
     async fn get(&self, url: &str) -> Result<String>;
+    async fn get_with_status(&self, url: &str) -> Result<(u16, String)>;
 }
 
 pub trait ExtractionEngine: Send + Sync {
@@ -44,11 +45,17 @@ impl ReqwestClient {
 #[async_trait]
 impl HttpClient for ReqwestClient {
     async fn get(&self, url: &str) -> Result<String> {
+        let (_, body) = self.get_with_status(url).await?;
+        Ok(body)
+    }
+
+    async fn get_with_status(&self, url: &str) -> Result<(u16, String)> {
         let resp = self.client.get(url).send().await?;
-        if resp.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+        let status = resp.status().as_u16();
+        if status == 429 {
             return Err(anyhow::anyhow!("Rate limited (429)"));
         }
         let body = resp.text().await?;
-        Ok(body)
+        Ok((status, body))
     }
 }

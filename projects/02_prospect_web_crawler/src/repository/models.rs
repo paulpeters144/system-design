@@ -9,6 +9,7 @@ pub enum CrawlStatus {
     Processing,
     Completed,
     Failed,
+    Blocked,
 }
 
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
@@ -53,4 +54,7 @@ pub struct DomainMetrics {
     pub last_fetch_at: Option<DateTime<Utc>>,
     pub crawl_delay_ms: i32,
     pub error_count: i32,
+    pub robots_txt_content: Option<String>,
+    pub robots_txt_fetched_at: Option<DateTime<Utc>>,
+    pub robots_txt_status: Option<i32>,
 }

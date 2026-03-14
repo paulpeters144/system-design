@@ -10,6 +10,7 @@ pub trait FrontierRepo: Send + Sync {
     async fn get_pending_urls_bfs(&self, limit: i32) -> Result<Vec<QueuedUrl>>;
     async fn mark_completed(&self, url_hash: &[u8]) -> Result<()>;
     async fn mark_failed(&self, url_hash: &[u8]) -> Result<()>;
+    async fn mark_blocked(&self, url_hash: &[u8]) -> Result<()>;
     async fn add_to_frontier(&self, urls: Vec<QueuedUrl>) -> Result<()>;
     async fn get_all_url_hashes(&self) -> Result<Vec<Vec<u8>>>;
 }
@@ -103,6 +104,14 @@ impl FrontierRepo for PostgresRepository {
         Ok(())
     }
 
+    async fn mark_blocked(&self, url_hash: &[u8]) -> Result<()> {
+        sqlx::query("UPDATE frontier SET status = 'blocked' WHERE url_hash = $1")
+            .bind(url_hash)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
     async fn add_to_frontier(&self, urls: Vec<QueuedUrl>) -> Result<()> {
         for url in urls {
             sqlx::query(
@@ -190,7 +199,7 @@ impl LeadRepo for PostgresRepository {
 impl MetricsRepo for PostgresRepository {
     async fn get_domain_metrics(&self, domain: &str) -> Result<Option<DomainMetrics>> {
         let metrics = sqlx::query_as::<_, DomainMetrics>(
-            "SELECT domain, last_fetch_at, crawl_delay_ms, error_count FROM domain_metrics WHERE domain = $1"
+            "SELECT domain, last_fetch_at, crawl_delay_ms, error_count, robots_txt_content, robots_txt_fetched_at, robots_txt_status FROM domain_metrics WHERE domain = $1"
         )
         .bind(domain)
         .fetch_optional(&self.pool)
@@ -201,18 +210,24 @@ impl MetricsRepo for PostgresRepository {
     async fn upsert_domain_metrics(&self, metrics: DomainMetrics) -> Result<()> {
         sqlx::query(
             r#"
-            INSERT INTO domain_metrics (domain, last_fetch_at, crawl_delay_ms, error_count)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO domain_metrics (domain, last_fetch_at, crawl_delay_ms, error_count, robots_txt_content, robots_txt_fetched_at, robots_txt_status)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             ON CONFLICT (domain) DO UPDATE SET
                 last_fetch_at = EXCLUDED.last_fetch_at,
                 crawl_delay_ms = EXCLUDED.crawl_delay_ms,
-                error_count = EXCLUDED.error_count
+                error_count = EXCLUDED.error_count,
+                robots_txt_content = EXCLUDED.robots_txt_content,
+                robots_txt_fetched_at = EXCLUDED.robots_txt_fetched_at,
+                robots_txt_status = EXCLUDED.robots_txt_status
             "#,
         )
         .bind(metrics.domain)
         .bind(metrics.last_fetch_at)
         .bind(metrics.crawl_delay_ms)
         .bind(metrics.error_count)
+        .bind(metrics.robots_txt_content)
+        .bind(metrics.robots_txt_fetched_at)
+        .bind(metrics.robots_txt_status)
         .execute(&self.pool)
         .await?;
         Ok(())

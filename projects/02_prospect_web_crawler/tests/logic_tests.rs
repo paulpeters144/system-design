@@ -17,6 +17,7 @@ mock! {
     #[async_trait]
     impl HttpClient for HttpClient {
         async fn get(&self, url: &str) -> Result<String>;
+        async fn get_with_status(&self, url: &str) -> Result<(u16, String)>;
     }
 }
 
@@ -28,6 +29,7 @@ mock! {
         async fn get_pending_urls_bfs(&self, limit: i32) -> Result<Vec<QueuedUrl>>;
         async fn mark_completed(&self, url_hash: &[u8]) -> Result<()>;
         async fn mark_failed(&self, url_hash: &[u8]) -> Result<()>;
+        async fn mark_blocked(&self, url_hash: &[u8]) -> Result<()>;
         async fn add_to_frontier(&self, urls: Vec<QueuedUrl>) -> Result<()>;
         async fn get_all_url_hashes(&self) -> Result<Vec<Vec<u8>>>;
     }
@@ -140,10 +142,16 @@ async fn test_full_crawl_lifecycle_simulation() {
         </html>
     "#;
     mock_http
-        .expect_get()
+        .expect_get_with_status()
+        .with(eq("https://example.com/robots.txt".to_string()))
+        .times(1)
+        .returning(|_| Ok((200, "User-agent: *\nAllow: /".to_string())));
+
+    mock_http
+        .expect_get_with_status()
         .with(eq(url.clone()))
         .times(1)
-        .returning(move |_| Ok(html.to_string()));
+        .returning(move |_| Ok((200, html.to_string())));
 
     // 4. Lead processing
     mock_lead_repo
@@ -171,7 +179,7 @@ async fn test_full_crawl_lifecycle_simulation() {
     mock_metrics_repo
         .expect_upsert_domain_metrics()
         .withf(|m| m.error_count == 0)
-        .times(1)
+        .times(2)
         .returning(|_| Ok(()));
 
     // Setup Frontier

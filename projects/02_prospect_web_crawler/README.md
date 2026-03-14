@@ -13,7 +13,7 @@ This project employs a highly modular architecture using traits to allow for plu
     *   **Scoring Engine**: Evaluates the quality of extracted data (e.g., `WealthIntentScorer` vs. `ProfessionalReferralScorer`).
 3.  **Frontier Management**:
     *   **Frontier**: An in-memory/database hybrid queue that uses a **Bloom Filter** for high-efficiency URL deduplication before hitting the database.
-    *   **Politeness**: Integrated checks against domain-specific metrics to ensure crawl delays are respected.
+    *   **Politeness**: Integrated `robots.txt` compliance that automatically fetches, caches (24h), and respects site-specific rules (`Allow`/`Disallow`) and dynamic `Crawl-delay` directives using a native port of Google's parsing library.
 4.  **Data Access Layer (`repository`)**:
     *   **PostgreSQL**: Stores the URL frontier, extracted leads, and domain metrics using SQLx.
 
@@ -80,8 +80,8 @@ sequenceDiagram
 ```
 
 #### 2. Batch Orchestration & Politeness
-The orchestrator manages the high-level crawl loop, selecting batches of work and enforcing "politeness" to avoid overwhelming target servers. It checks domain-specific metrics (like crawl delays and error rates) before allowing a fetch to proceed.
-*   **Outcome**: A coordinated stream of URLs that are safe to crawl without violating `robots.txt` or server constraints.
+The orchestrator manages the high-level crawl loop, selecting batches of work and enforcing "politeness" to avoid overwhelming target servers. It checks domain-specific metrics (like crawl delays and error rates) and evaluates `robots.txt` rules before allowing a fetch to proceed.
+*   **Outcome**: A coordinated stream of URLs that are safe to crawl, ensuring the bot is a polite citizen by strictly adhering to `robots.txt` specifications and server-enforced delays.
 
 ```mermaid
 sequenceDiagram
@@ -92,8 +92,8 @@ sequenceDiagram
         M->>R: select_batch(limit)
         R-->>M: url_list
         loop for each URL
-            M->>R: can_crawl(domain)?
-            R-->>M: status (allowed/wait)
+            M->>R: can_crawl(url, domain)?
+            R-->>M: status (allowed/wait/blocked)
             Note right of M: If allowed, proceed to processing
             M->>R: mark_completed(url_hash)
             M->>R: update_metrics(domain)
@@ -101,40 +101,43 @@ sequenceDiagram
     end
 ```
 
-#### 3. Content Processing & Discovery
-This is the core "worker" logic where data is actually extracted and the crawl frontier expands. It fetches HTML, uses the configured engines to find and score leads, and discovers new links which are then deduplicated via the Bloom Filter.
-*   **Outcome**: High-quality leads are saved to the database with intent scores, and the system discovers unique new URLs to continue the crawl.
+#### 3. Lead Value Pipeline
+This workflow highlights the primary business value: transforming raw HTML into scored and prioritized leads. It demonstrates how the pluggable extraction and scoring engines work together to qualify discovered data.
+*   **Outcome**: High-quality leads are saved to the database with intent scores, providing immediate business value from the crawl.
 
 ```mermaid
 sequenceDiagram
     participant M as AppManager
-    participant H as HttpClient
-    participant E as Engines (Extract/Score)
+    participant E as ExtractionEngine
+    participant S as ScoringEngine
+    participant R as Repository
+
+    M->>E: extract(html)
+    E-->>M: raw_leads
+    
+    loop for each lead
+        M->>S: score(lead)
+        S-->>M: score (1-100)
+        M->>R: upsert_lead(lead, score)
+    end
+```
+
+#### 4. Link Discovery
+This workflow covers the recursive expansion of the crawl frontier. It uses the Bloom Filter for instant, high-efficiency deduplication to ensure the crawler never visits the same URL twice.
+*   **Outcome**: The system discovers unique new URLs and expands the frontier without redundant processing.
+
+```mermaid
+sequenceDiagram
+    participant M as AppManager
     participant F as Frontier (Bloom)
     participant R as Repository
 
-    M->>H: GET url
-    H-->>M: HTML
-    M->>E: extract(html)
-    E-->>M: raw_leads, new_links
-    
-    rect rgb(240, 240, 240)
-        Note over M,R: Lead Processing
-        loop for each lead
-            M->>E: score(lead)
-            E-->>M: score
-            M->>R: upsert_lead(lead, score)
-        end
-    end
-
-    rect rgb(240, 240, 240)
-        Note over M,F: Link Discovery
-        loop for each link
-            M->>F: contains(hash)?
-            F-->>M: false
-            M->>F: add(hash)
-            M->>R: add_to_frontier(link)
-        end
+    M->>M: extract_links(html)
+    loop for each link
+        M->>F: contains(hash)?
+        F-->>M: false
+        M->>F: add(hash)
+        M->>R: add_to_frontier(link)
     end
 ```
 
@@ -145,6 +148,7 @@ sequenceDiagram
 - **Async Runtime**: [Tokio](https://tokio.rs/)
 - **HTTP Client**: [Reqwest](https://github.com/seanmonstar/reqwest)
 - **HTML Parsing**: [Scraper](https://github.com/causal-agent/scraper)
+- **Robots.txt Parser**: [robotstxt](https://github.com/pizlonator/robotstxt-rs) (Native port of Google's C++ library)
 - **Deduplication**: [Bloom Filter](https://github.com/crepererum/bloomfilter-rs)
 - **CLI Framework**: [Argh](https://github.com/google/argh)
 - **Logging**: [Tracing](https://github.com/tokio-rs/tracing)
