@@ -44,11 +44,14 @@ graph TD
         H[HTTP Client]
     end
 
+    W((Internet/Websites))
+
     C --> M
     M --> L3
     M --> F
     M --> R
     M --> H
+    H <-->|Fetch HTML| W
     F -- Warm-up --> R
 ```
 
