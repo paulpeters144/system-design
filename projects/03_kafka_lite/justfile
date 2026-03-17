@@ -1,0 +1,29 @@
+set shell := ["powershell.exe", "-Command"]
+
+# Build the project
+build:
+    cargo build
+
+# Run tests with output
+test-nocapture:
+    cargo test -- --nocapture
+
+# Run tests
+test:
+    cargo nextest run
+
+# Run clippy
+lint:
+    cargo clippy -- -D warnings
+
+# Format code
+fmt:
+    cargo fmt
+
+# Check formatting
+fmt-check:
+    cargo fmt -- --check
+
+# Clean the project
+clean:
+    cargo clean
