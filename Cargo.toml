@@ -2,6 +2,6 @@
 members = [
     "projects/01_url_shortener",
     "projects/02_prospect_web_crawler",
-    "common",
+    "common", "projects/03_kafka_lite",
 ]
 resolver = "2"
