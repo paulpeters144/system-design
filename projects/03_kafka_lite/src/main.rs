@@ -1,4 +1,5 @@
 use futures::{SinkExt, StreamExt};
+use std::io;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio_util::codec::Framed;
@@ -29,7 +30,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let log_access = Arc::new(log_access);
 
     // 4. Initialize Manager
-    let app_manager = AppManager::new(log_access);
+    let app_manager = AppManager::new(log_access)
+        .map_err(|e| io::Error::other(format!("Failed to initialize AppManager: {:?}", e)))?;
     let app_manager = Arc::new(app_manager);
 
     let addr = format!("127.0.0.1:{}", settings.broker_port);

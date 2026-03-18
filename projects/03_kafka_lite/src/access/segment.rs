@@ -93,15 +93,27 @@ impl Segment {
 
         let mut index_buf = [0u8; 16];
         self.index_file.read_exact(&mut index_buf).await?;
-        let physical_pos = u64::from_be_bytes(index_buf[8..16].try_into().unwrap());
+        let physical_pos = u64::from_be_bytes(
+            index_buf[8..16]
+                .try_into()
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Corrupted index entry"))?,
+        );
 
         self.log_file.seek(SeekFrom::Start(physical_pos)).await?;
 
         let mut header = [0u8; 8];
         self.log_file.read_exact(&mut header).await?;
 
-        let stored_crc = u32::from_be_bytes(header[0..4].try_into().unwrap());
-        let len = u32::from_be_bytes(header[4..8].try_into().unwrap()) as usize;
+        let stored_crc = u32::from_be_bytes(
+            header[0..4]
+                .try_into()
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Corrupted segment header"))?,
+        );
+        let len = u32::from_be_bytes(
+            header[4..8]
+                .try_into()
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Corrupted segment header"))?,
+        ) as usize;
 
         let mut data = vec![0u8; len];
         self.log_file.read_exact(&mut data).await?;
@@ -146,10 +158,10 @@ mod tests {
             let mut dir = env::temp_dir();
             let time = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("Time went backwards")
                 .as_nanos();
             dir.push(format!("kafka_lite_unit_segment_{}_{}", test_name, time));
-            tokio_fs::create_dir_all(&dir).await.unwrap();
+            tokio_fs::create_dir_all(&dir).await.expect("Failed to create test dir");
             Self(dir)
         }
 
@@ -165,36 +177,38 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_segment_read_write() {
+    async fn test_segment_read_write() -> io::Result<()> {
         let dir = TestDir::new("read_write").await;
-        let mut segment = Segment::new(dir.path(), 0, 1024).await.unwrap();
+        let mut segment = Segment::new(dir.path(), 0, 1024).await?;
 
-        let offset = segment.append(b"hello").await.unwrap();
+        let offset = segment.append(b"hello").await?;
         assert_eq!(offset, 0);
-        assert_eq!(segment.read(0).await.unwrap(), b"hello");
+        assert_eq!(segment.read(0).await?, b"hello");
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_segment_recovery() {
+    async fn test_segment_recovery() -> io::Result<()> {
         let dir = TestDir::new("recovery").await;
         let base_offset = 100;
         {
-            let mut segment = Segment::new(dir.path(), base_offset, 1024).await.unwrap();
-            segment.append(b"data").await.unwrap();
+            let mut segment = Segment::new(dir.path(), base_offset, 1024).await?;
+            segment.append(b"data").await?;
         }
 
-        let mut segment = Segment::new(dir.path(), base_offset, 1024).await.unwrap();
+        let mut segment = Segment::new(dir.path(), base_offset, 1024).await?;
         assert_eq!(segment.next_offset, base_offset + 1);
-        assert_eq!(segment.read(base_offset).await.unwrap(), b"data");
+        assert_eq!(segment.read(base_offset).await?, b"data");
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_crc_mismatch() {
+    async fn test_crc_mismatch() -> io::Result<()> {
         let dir = TestDir::new("crc").await;
         let base_offset = 0;
         {
-            let mut segment = Segment::new(dir.path(), base_offset, 1024).await.unwrap();
-            segment.append(b"good data").await.unwrap();
+            let mut segment = Segment::new(dir.path(), base_offset, 1024).await?;
+            segment.append(b"good data").await?;
         }
 
         // Corrupt the file
@@ -202,15 +216,15 @@ mod tests {
         let mut file = OpenOptions::new()
             .write(true)
             .open(&log_path)
-            .await
-            .unwrap();
-        file.seek(SeekFrom::Start(8)).await.unwrap();
-        file.write_all(b"B").await.unwrap();
-        file.sync_all().await.unwrap();
+            .await?;
+        file.seek(SeekFrom::Start(8)).await?;
+        file.write_all(b"B").await?;
+        file.sync_all().await?;
 
-        let mut segment = Segment::new(dir.path(), base_offset, 1024).await.unwrap();
+        let mut segment = Segment::new(dir.path(), base_offset, 1024).await?;
         let result = segment.read(0).await;
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("CRC mismatch"));
+        Ok(())
     }
 }

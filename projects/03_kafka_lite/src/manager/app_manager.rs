@@ -9,11 +9,14 @@ pub struct AppManager {
 }
 
 impl AppManager {
-    pub fn new(log_access: Arc<LogAccess>) -> Self {
-        Self {
+    pub fn new(log_access: Arc<LogAccess>) -> Result<Self, AppError> {
+        let topic_regex = Regex::new(r"^[a-z0-9_-]+$")
+            .map_err(|e| AppError::InternalError(format!("Invalid topic regex: {}", e)))?;
+
+        Ok(Self {
             log_access,
-            topic_regex: Regex::new(r"^[a-z0-9_-]+$").unwrap(),
-        }
+            topic_regex,
+        })
     }
 
     pub async fn process(&self, request: Request) -> Result<Response, AppError> {

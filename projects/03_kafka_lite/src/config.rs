@@ -16,6 +16,8 @@ impl Settings {
         let s = Config::builder()
             .set_default("broker_port", 8080)?
             .set_default("log_level", "info")?
+            .set_default("log_dir", "data")?
+            .set_default("segment_size_limit", "100MB")?
             .add_source(File::with_name("config.yaml").required(false))
             .add_source(config::Environment::with_prefix("KAFKA_LITE"))
             .build()?;
@@ -74,7 +76,7 @@ mod tests {
 
         for (input, expected) in cases {
             let yaml = format!("bytes: \"{}\"", input);
-            let config: TestConfig = serde_yaml::from_str(&yaml).unwrap();
+            let config: TestConfig = serde_yaml::from_str(&yaml).expect("Failed to deserialize test config");
             assert_eq!(config.bytes, expected, "Failed for input: {}", input);
         }
     }

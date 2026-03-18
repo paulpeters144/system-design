@@ -12,10 +12,10 @@ impl TestDir {
         let mut dir = std::env::temp_dir();
         let time = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .expect("Time went backwards")
             .as_nanos();
         dir.push(format!("kafka_lite_test_{}_{}", test_name, time));
-        fs::create_dir_all(&dir).await.unwrap();
+        fs::create_dir_all(&dir).await.expect("Failed to create test dir");
         Self(dir)
     }
 
@@ -35,13 +35,13 @@ impl Drop for TestDir {
 }
 
 #[tokio::test]
-async fn test_end_to_end_produce_fetch() {
+async fn test_end_to_end_produce_fetch() -> Result<(), Box<dyn std::error::Error>> {
     let dir = TestDir::new("e2e").await;
     // Declaring these AFTER dir ensures they are dropped BEFORE dir.
     let path = dir.path().to_path_buf();
-    let log_access = LogAccess::new(path, 1024 * 1024).await.unwrap();
+    let log_access = LogAccess::new(path, 1024 * 1024).await?;
     let log_access = Arc::new(log_access);
-    let manager = AppManager::new(log_access);
+    let manager = AppManager::new(log_access).expect("Failed to create AppManager");
 
     let topic = "test_topic".to_string();
     let message = b"hello world".to_vec();
@@ -52,8 +52,7 @@ async fn test_end_to_end_produce_fetch() {
             topic: topic.clone(),
             message: message.clone(),
         })
-        .await
-        .unwrap();
+        .await?;
 
     if let Response::Produced { offset } = res {
         assert_eq!(offset, 0);
@@ -64,8 +63,7 @@ async fn test_end_to_end_produce_fetch() {
                 topic: topic.clone(),
                 offset,
             })
-            .await
-            .unwrap();
+            .await?;
 
         if let Response::Fetched { message: read_msg } = res {
             assert_eq!(read_msg, message);
@@ -75,15 +73,16 @@ async fn test_end_to_end_produce_fetch() {
     } else {
         panic!("Expected Produced response");
     }
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_invalid_topic_names() {
+async fn test_invalid_topic_names() -> Result<(), Box<dyn std::error::Error>> {
     let dir = TestDir::new("invalid_topic").await;
     let path = dir.path().to_path_buf();
-    let log_access = LogAccess::new(path, 1024 * 1024).await.unwrap();
+    let log_access = LogAccess::new(path, 1024 * 1024).await?;
     let log_access = Arc::new(log_access);
-    let manager = AppManager::new(log_access);
+    let manager = AppManager::new(log_access).expect("Failed to create AppManager");
 
     let invalid_names = vec!["../test", "UPPERCASE", "topic with spaces", "evil\nname"];
 
@@ -97,46 +96,46 @@ async fn test_invalid_topic_names() {
         let is_invalid = matches!(res, Err(AppError::InvalidTopicName));
         assert!(is_invalid, "Failed to reject invalid topic: {}", name);
     }
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_persistence_across_restarts() {
+async fn test_persistence_across_restarts() -> Result<(), Box<dyn std::error::Error>> {
     let dir = TestDir::new("persistence").await;
     let topic = "persistent_topic";
     let message = b"staying alive";
 
     {
         let path = dir.path().to_path_buf();
-        let log_access = LogAccess::new(path, 1024 * 1024).await.unwrap();
+        let log_access = LogAccess::new(path, 1024 * 1024).await?;
         let log_access = Arc::new(log_access);
-        let manager = AppManager::new(log_access);
+        let manager = AppManager::new(log_access).expect("Failed to create AppManager");
 
         manager
             .process(Request::Produce {
                 topic: topic.to_string(),
                 message: message.to_vec(),
             })
-            .await
-            .unwrap();
+            .await?;
     }
 
     // Restart
     let path = dir.path().to_path_buf();
-    let log_access = LogAccess::new(path, 1024 * 1024).await.unwrap();
+    let log_access = LogAccess::new(path, 1024 * 1024).await?;
     let log_access = Arc::new(log_access);
-    let manager = AppManager::new(log_access);
+    let manager = AppManager::new(log_access).expect("Failed to create AppManager");
 
     let res = manager
         .process(Request::Fetch {
             topic: topic.to_string(),
             offset: 0,
         })
-        .await
-        .unwrap();
+        .await?;
 
     if let Response::Fetched { message: read_msg } = res {
         assert_eq!(read_msg, message);
     } else {
         panic!("Expected Fetched response after restart");
     }
+    Ok(())
 }

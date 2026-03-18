@@ -54,7 +54,11 @@ impl TopicLog {
     pub async fn append(&self, data: &[u8]) -> io::Result<u64> {
         let mut segments = self.segments.lock().await;
 
-        let active_arc = segments.values().next_back().unwrap().clone();
+        let active_arc = segments
+            .values()
+            .next_back()
+            .ok_or_else(|| io::Error::other("No segments available"))?
+            .clone();
         let mut active = active_arc.lock().await;
 
         if active.is_full() {
@@ -103,10 +107,10 @@ mod tests {
             let mut dir = env::temp_dir();
             let time = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("Time went backwards")
                 .as_nanos();
             dir.push(format!("kafka_lite_unit_topic_{}_{}", test_name, time));
-            tokio_fs::create_dir_all(&dir).await.unwrap();
+            tokio_fs::create_dir_all(&dir).await.expect("Failed to create test dir");
             Self(dir)
         }
 
@@ -122,25 +126,25 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_topic_log_segment_splitting() {
+    async fn test_topic_log_segment_splitting() -> io::Result<()> {
         let dir = TestDir::new("splitting").await;
         // Limit size so 2 messages trigger a split
         let limit = 20;
         let log = TopicLog::new(dir.path().to_path_buf(), limit)
-            .await
-            .unwrap();
+            .await?;
 
-        log.append(b"message_one_long").await.unwrap();
-        log.append(b"message_two_long").await.unwrap();
+        log.append(b"message_one_long").await?;
+        log.append(b"message_two_long").await?;
 
         // Verify two segments exist
-        let mut entries = tokio_fs::read_dir(dir.path()).await.unwrap();
+        let mut entries = tokio_fs::read_dir(dir.path()).await?;
         let mut count = 0;
-        while let Some(entry) = entries.next_entry().await.unwrap() {
+        while let Some(entry) = entries.next_entry().await? {
             if entry.path().extension().and_then(|s| s.to_str()) == Some("log") {
                 count += 1;
             }
         }
         assert!(count >= 2, "Expected at least 2 segments, found {}", count);
+        Ok(())
     }
 }

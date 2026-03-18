@@ -23,7 +23,21 @@ pub enum AppError {
     TopicNotFound,
     InvalidTopicName,
     IoError(String),
+    InternalError(String),
 }
+
+impl std::fmt::Display for AppError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AppError::TopicNotFound => write!(f, "Topic not found"),
+            AppError::InvalidTopicName => write!(f, "Invalid topic name"),
+            AppError::IoError(s) => write!(f, "IO Error: {}", s),
+            AppError::InternalError(s) => write!(f, "Internal Error: {}", s),
+        }
+    }
+}
+
+impl std::error::Error for AppError {}
 
 impl From<AppError> for Response {
     fn from(err: AppError) -> Self {
@@ -36,6 +50,9 @@ impl From<AppError> for Response {
             },
             AppError::IoError(s) => Response::Error {
                 message: format!("Broker IO Error: {}", s),
+            },
+            AppError::InternalError(s) => Response::Error {
+                message: format!("Internal Broker Error: {}", s),
             },
         }
     }

@@ -42,7 +42,11 @@ impl Decoder for KafkaCodec {
             return Ok(None);
         }
 
-        let len = u32::from_be_bytes(src[..4].try_into().unwrap()) as usize;
+        let len = u32::from_be_bytes(
+            src[..4]
+                .try_into()
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Invalid frame length"))?,
+        ) as usize;
 
         if len > MAX_FRAME_SIZE as usize {
             return Err(CodecError::FrameTooLarge.into());
@@ -118,7 +122,7 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_fetch_request() {
+    fn test_decode_fetch_request() -> io::Result<()> {
         let mut codec = KafkaCodec;
         let mut src = BytesMut::new();
 
@@ -132,8 +136,7 @@ mod tests {
         src.put_slice(&payload);
 
         let decode = codec
-            .decode(&mut src)
-            .unwrap()
+            .decode(&mut src)?
             .expect("Should return Some(Request)");
         match decode {
             Request::Fetch { topic, offset } => {
@@ -142,10 +145,11 @@ mod tests {
             }
             _ => panic!("Expected Fetch request varient"),
         }
+        Ok(())
     }
 
     #[test]
-    fn test_encode_produced_response() {
+    fn test_encode_produced_response() -> io::Result<()> {
         let mut codec = KafkaCodec;
         let mut dst = BytesMut::new();
 
@@ -153,7 +157,11 @@ mod tests {
         codec.encode(response, &mut dst).expect("Encode failed");
 
         assert!(dst.len() > 4);
-        let len = u32::from_be_bytes(dst[..4].try_into().unwrap());
+        let len = u32::from_be_bytes(
+            dst[..4]
+                .try_into()
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Invalid len"))?,
+        );
         assert_eq!(dst.len(), 4 + len as usize);
 
         let payload = &dst[4..];
@@ -162,10 +170,11 @@ mod tests {
             Response::Produced { offset } => assert_eq!(offset, 123),
             _ => panic!("Expected Produced response varient"),
         }
+        Ok(())
     }
 
     #[test]
-    fn test_decode_partial_frame() {
+    fn test_decode_partial_frame() -> io::Result<()> {
         let mut codec = KafkaCodec;
         let mut src = BytesMut::new();
 
@@ -173,22 +182,21 @@ mod tests {
             topic: "t".to_string(),
             message: vec![1, 2, 3],
         };
-        let payload = bincode::serialize(&request).unwrap();
+        let payload = bincode::serialize(&request).expect("Serialize failed");
         let total_len = payload.len() as u32;
 
         // 1. Send only the length - should return None
         src.put_u32(total_len);
-        assert!(codec.decode(&mut src).unwrap().is_none());
+        assert!(codec.decode(&mut src)?.is_none());
 
         // 2. Send partial payload - should return None
         src.put_slice(&payload[..payload.len() - 1]);
-        assert!(codec.decode(&mut src).unwrap().is_none());
+        assert!(codec.decode(&mut src)?.is_none());
 
         // 3. Complete the payload - should return Some(Request)
-        src.put_u8(*payload.last().unwrap());
+        src.put_u8(*payload.last().expect("Payload not empty"));
         let result = codec
-            .decode(&mut src)
-            .unwrap()
+            .decode(&mut src)?
             .expect("Should complete decoding");
 
         if let Request::Produce { topic, .. } = result {
@@ -196,6 +204,7 @@ mod tests {
         } else {
             panic!("Decoded wrong request type");
         }
+        Ok(())
     }
 
     #[test]

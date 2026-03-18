@@ -108,10 +108,10 @@ mod tests {
             let mut dir = env::temp_dir();
             let time = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("Time went backwards")
                 .as_nanos();
             dir.push(format!("kafka_lite_unit_registry_{}_{}", test_name, time));
-            tokio_fs::create_dir_all(&dir).await.unwrap();
+            tokio_fs::create_dir_all(&dir).await.expect("Failed to create test dir");
             Self(dir)
         }
 
@@ -127,37 +127,36 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_registry_dynamic_creation() {
+    async fn test_registry_dynamic_creation() -> io::Result<()> {
         let dir = TestDir::new("dynamic").await;
         let registry = LogAccess::new(dir.path().to_path_buf(), 1024 * 1024)
-            .await
-            .unwrap();
+            .await?;
 
-        let offset = registry.append("new_topic", b"data").await.unwrap();
+        let offset = registry.append("new_topic", b"data").await?;
         assert_eq!(offset, 0);
 
-        let read_back = registry.read("new_topic", 0).await.unwrap();
+        let read_back = registry.read("new_topic", 0).await?;
         assert_eq!(read_back, b"data");
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_registry_bootstrap() {
+    async fn test_registry_bootstrap() -> io::Result<()> {
         let dir = TestDir::new("bootstrap").await;
         let topic_name = "existing_topic";
 
         // Pre-create a topic
         {
             let registry = LogAccess::new(dir.path().to_path_buf(), 1024 * 1024)
-                .await
-                .unwrap();
-            registry.append(topic_name, b"initial").await.unwrap();
+                .await?;
+            registry.append(topic_name, b"initial").await?;
         }
 
         // Re-open and verify it's bootstrapped
         let registry = LogAccess::new(dir.path().to_path_buf(), 1024 * 1024)
-            .await
-            .unwrap();
-        let read_back = registry.read(topic_name, 0).await.unwrap();
+            .await?;
+        let read_back = registry.read(topic_name, 0).await?;
         assert_eq!(read_back, b"initial");
+        Ok(())
     }
 }
