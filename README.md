@@ -8,6 +8,7 @@ A collection of system design projects implemented in Rust. This repository serv
 
 * **[01 URL Shortener](./projects/01_url_shortener):** A URL shortening service.
 * **[02 Prospect Web Crawler](./projects/02_prospect_web_crawler):** A web crawler engine.
+* **[03 Kafka-lite](./projects/03_kafka_lite):** A lightweight message broker.
 
 ## Structure
 

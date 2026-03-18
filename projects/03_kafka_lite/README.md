@@ -164,12 +164,6 @@ async function consumeOrders() {
         }
     });
 }
-
-// Standard Graceful Shutdown
-process.on('SIGINT', async () => {
-    await client.disconnect();
-    process.exit(0);
-});
 ```
 
 ### Protocol Specification
