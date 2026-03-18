@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Settings {
+    pub broker_host: String,
     pub broker_port: u16,
     pub log_dir: PathBuf,
     pub log_level: String,
@@ -14,6 +15,7 @@ pub struct Settings {
 impl Settings {
     pub fn new() -> Result<Self, ConfigError> {
         let s = Config::builder()
+            .set_default("broker_host", "127.0.0.1")?
             .set_default("broker_port", 8080)?
             .set_default("log_level", "info")?
             .set_default("log_dir", "data")?

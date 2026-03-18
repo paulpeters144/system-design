@@ -27,3 +27,12 @@ fmt-check:
 # Clean the project
 clean:
     cargo clean
+
+# Start the application in Docker
+docker-up:
+    docker compose up -d
+
+# Stop the application in Docker
+docker-down:
+    docker compose down
+

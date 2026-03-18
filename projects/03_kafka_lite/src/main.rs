@@ -34,7 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|e| io::Error::other(format!("Failed to initialize AppManager: {:?}", e)))?;
     let app_manager = Arc::new(app_manager);
 
-    let addr = format!("127.0.0.1:{}", settings.broker_port);
+    let addr = format!("{}:{}", settings.broker_host, settings.broker_port);
     let listener = TcpListener::bind(&addr).await?;
     info!("Broker listening on {}", addr);
 
