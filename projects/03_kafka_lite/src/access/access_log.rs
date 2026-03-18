@@ -62,8 +62,13 @@ impl Segment {
         let offset = self.next_offset;
         let pos = self.position;
 
-        // Write Log Entry: [Placeholder CRC (4)] [Length (4)] [Payload]
-        self.log_file.write_all(&0u32.to_be_bytes()).await?;
+        // Calculate CRC
+        let mut hasher = crc32fast::Hasher::new();
+        hasher.update(data);
+        let crc = hasher.finalize();
+
+        // Write Log Entry: [CRC (4)] [Length (4)] [Payload]
+        self.log_file.write_all(&crc.to_be_bytes()).await?;
         self.log_file
             .write_all(&(data.len() as u32).to_be_bytes())
             .await?;
@@ -104,10 +109,26 @@ impl Segment {
         self.log_file.read_exact(&mut header).await?;
 
         // Header format: [CRC (0..4)] [Length (4..8)]
+        let stored_crc = u32::from_be_bytes(header[0..4].try_into().unwrap());
         let len = u32::from_be_bytes(header[4..8].try_into().unwrap()) as usize;
 
         let mut data = vec![0u8; len];
         self.log_file.read_exact(&mut data).await?;
+
+        // Verify CRC
+        let mut hasher = crc32fast::Hasher::new();
+        hasher.update(&data);
+        let calculated_crc = hasher.finalize();
+
+        if stored_crc != calculated_crc {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "CRC mismatch at offset {}: stored={}, calculated={}",
+                    offset, stored_crc, calculated_crc
+                ),
+            ));
+        }
 
         Ok(data)
     }
@@ -327,6 +348,155 @@ mod tests {
         for i in 0..total {
             let _ = log.read(i as u64).await.expect("Concurrent data missing");
         }
+
+        cleanup_test_dir(dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_crc_mismatch() {
+        let dir = setup_test_dir("crc_mismatch").await;
+        let payload = b"untampered data";
+
+        {
+            let log = LogAccess::new(&dir).await.unwrap();
+            log.append(payload).await.unwrap();
+        }
+
+        // Manually corrupt the log file
+        let log_path = dir.join(format!("{:020}.log", 0));
+        let mut file = OpenOptions::new()
+            .write(true)
+            .open(&log_path)
+            .await
+            .unwrap();
+        file.seek(SeekFrom::Start(8)).await.unwrap(); // Skip 8-byte header (CRC + Length)
+        file.write_all(b"X").await.unwrap(); // Corrupt first byte of payload
+        file.sync_all().await.unwrap();
+
+        let log = LogAccess::new(&dir).await.unwrap();
+        let result = log.read(0).await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("CRC mismatch"));
+
+        cleanup_test_dir(dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_crc_header_corruption() {
+        let dir = setup_test_dir("crc_header_corrupt").await;
+        let payload = b"important data";
+
+        {
+            let log = LogAccess::new(&dir).await.unwrap();
+            log.append(payload).await.unwrap();
+        }
+
+        // Corrupt only the CRC stored in the header (first 4 bytes)
+        let log_path = dir.join(format!("{:020}.log", 0));
+        let mut file = OpenOptions::new().write(true).open(&log_path).await.unwrap();
+        let mut crc_bytes = [0u8; 1];
+        file.read_exact(&mut crc_bytes).await.unwrap_err(); // It's write-only, let's reopen correctly
+        drop(file);
+
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&log_path)
+            .await
+            .unwrap();
+        let mut first_byte = [0u8; 1];
+        file.read_exact(&mut first_byte).await.unwrap();
+        file.seek(SeekFrom::Start(0)).await.unwrap();
+        file.write_all(&[first_byte[0] ^ 0xFF]).await.unwrap(); // Flip all bits in first byte of CRC
+        file.sync_all().await.unwrap();
+
+        let log = LogAccess::new(&dir).await.unwrap();
+        let result = log.read(0).await;
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("CRC mismatch"));
+
+        cleanup_test_dir(dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_length_field_corruption_smaller() {
+        let dir = setup_test_dir("len_corrupt_small").await;
+        let payload = b"some message content";
+
+        {
+            let log = LogAccess::new(&dir).await.unwrap();
+            log.append(payload).await.unwrap();
+        }
+
+        // Corrupt the length field (bytes 4-8) to be smaller
+        let log_path = dir.join(format!("{:020}.log", 0));
+        let mut file = OpenOptions::new()
+            .write(true)
+            .open(&log_path)
+            .await
+            .unwrap();
+        file.seek(SeekFrom::Start(7)).await.unwrap(); // Last byte of 4-byte length
+        file.write_all(&[1u8]).await.unwrap(); // Set length to 1 (if it was larger)
+        file.sync_all().await.unwrap();
+
+        let log = LogAccess::new(&dir).await.unwrap();
+        let result = log.read(0).await;
+
+        // This should fail CRC because we only read 1 byte of payload, 
+        // but the CRC was calculated for the full original payload.
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("CRC mismatch"));
+
+        cleanup_test_dir(dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_empty_payload_integrity() {
+        let dir = setup_test_dir("empty_payload").await;
+        let log = LogAccess::new(&dir).await.unwrap();
+
+        let offset = log.append(b"").await.expect("Failed to append empty payload");
+        assert_eq!(offset, 0);
+
+        let read_back = log.read(offset).await.expect("Failed to read empty payload");
+        assert!(read_back.is_empty());
+
+        cleanup_test_dir(dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_single_bit_flip_detection() {
+        let dir = setup_test_dir("bit_flip").await;
+        let payload = b"sensitive data";
+
+        {
+            let log = LogAccess::new(&dir).await.unwrap();
+            log.append(payload).await.unwrap();
+        }
+
+        let log_path = dir.join(format!("{:020}.log", 0));
+        let mut file = OpenOptions::new().read(true).write(true).open(&log_path).await.unwrap();
+        
+        // Seek to middle of payload
+        file.seek(SeekFrom::Start(12)).await.unwrap(); 
+        let mut byte = [0u8; 1];
+        file.read_exact(&mut byte).await.unwrap();
+        
+        // Flip exactly one bit
+        byte[0] ^= 0b0000_0001; 
+        
+        file.seek(SeekFrom::Start(12)).await.unwrap();
+        file.write_all(&byte).await.unwrap();
+        file.sync_all().await.unwrap();
+
+        let log = LogAccess::new(&dir).await.unwrap();
+        let result = log.read(0).await;
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("CRC mismatch"));
 
         cleanup_test_dir(dir).await;
     }
