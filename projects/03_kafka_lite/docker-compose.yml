@@ -10,8 +10,3 @@ services:
       - KAFKA_LITE_BROKER_PORT=8080
       - KAFKA_LITE_LOG_LEVEL=info
       - KAFKA_LITE_LOG_DIR=/data
-    volumes:
-      - kafka_data:/data
-
-volumes:
-  kafka_data:
