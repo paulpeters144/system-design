@@ -8,10 +8,10 @@ Kafka-lite follows a decoupled, service-oriented architecture designed for high 
 
 1.  **Network Layer (`codec.rs`)**: Built with `tokio-util::codec`, this layer handles raw TCP streams. It uses a custom length-prefixed binary framing protocol and **Bincode** for efficient serialization/deserialization of requests and responses.
 2.  **Service Layer (`manager/app_manager.rs`)**: The `AppManager` acts as the broker's "brain," routing decoded requests to the storage layer and enforcing business rules (e.g., topic name validation via Regex).
-3.  **Storage Layer (`access/`)**: A sophisticated, multi-level append-only storage system:
-    *   **Registry (`registry.rs`)**: Manages the lifecycle and discovery of multiple topics.
+3.  **Storage Layer (`access/`)**: An append-only storage system:
+    *   **Registry (`registry.rs`)**: Manages the lifecycle and discovery of topics.
     *   **Topic Log (`topic_log.rs`)**: Handles log rotation and segment management for individual topics.
-    *   **Segment (`segment.rs`)**: The foundation of the storage engine. Each segment consists of a `.log` file (actual data) and a `.index` file (offset-to-position mapping), utilizing **CRC32** for data integrity.
+    *   **Segment (`segment.rs`)**: The storage engine. Each segment consists of a `.log` file (actual data) and a `.index` file (offset-to-position mapping), utilizing **CRC32** for data integrity.
 
 ## System Architecture
 
