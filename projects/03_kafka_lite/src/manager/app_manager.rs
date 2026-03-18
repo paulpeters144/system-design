@@ -23,7 +23,8 @@ impl AppManager {
                     return Err(AppError::InvalidTopicName);
                 }
 
-                let offset = self.log_access
+                let offset = self
+                    .log_access
                     .append(&topic, &message)
                     .await
                     .map_err(|e| AppError::IoError(e.to_string()))?;
@@ -35,13 +36,14 @@ impl AppManager {
                     return Err(AppError::InvalidTopicName);
                 }
 
-                let message = self.log_access
-                    .read(&topic, offset)
-                    .await
-                    .map_err(|e| match e.kind() {
-                        std::io::ErrorKind::NotFound => AppError::TopicNotFound,
-                        _ => AppError::IoError(e.to_string()),
-                    })?;
+                let message =
+                    self.log_access
+                        .read(&topic, offset)
+                        .await
+                        .map_err(|e| match e.kind() {
+                            std::io::ErrorKind::NotFound => AppError::TopicNotFound,
+                            _ => AppError::IoError(e.to_string()),
+                        })?;
 
                 Ok(Response::Fetched { message })
             }

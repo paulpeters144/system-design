@@ -90,9 +90,8 @@ impl LogAccess {
 }
 
 pub fn is_valid_topic_name(name: &str) -> bool {
-    name.chars().all(|c| {
-        c.is_lowercase() || c.is_numeric() || c == '_' || c == '-'
-    })
+    name.chars()
+        .all(|c| c.is_lowercase() || c.is_numeric() || c == '_' || c == '-')
 }
 
 #[cfg(test)]
@@ -130,7 +129,9 @@ mod tests {
     #[tokio::test]
     async fn test_registry_dynamic_creation() {
         let dir = TestDir::new("dynamic").await;
-        let registry = LogAccess::new(dir.path().to_path_buf(), 1024 * 1024).await.unwrap();
+        let registry = LogAccess::new(dir.path().to_path_buf(), 1024 * 1024)
+            .await
+            .unwrap();
 
         let offset = registry.append("new_topic", b"data").await.unwrap();
         assert_eq!(offset, 0);
@@ -143,15 +144,19 @@ mod tests {
     async fn test_registry_bootstrap() {
         let dir = TestDir::new("bootstrap").await;
         let topic_name = "existing_topic";
-        
+
         // Pre-create a topic
         {
-            let registry = LogAccess::new(dir.path().to_path_buf(), 1024 * 1024).await.unwrap();
+            let registry = LogAccess::new(dir.path().to_path_buf(), 1024 * 1024)
+                .await
+                .unwrap();
             registry.append(topic_name, b"initial").await.unwrap();
         }
 
         // Re-open and verify it's bootstrapped
-        let registry = LogAccess::new(dir.path().to_path_buf(), 1024 * 1024).await.unwrap();
+        let registry = LogAccess::new(dir.path().to_path_buf(), 1024 * 1024)
+            .await
+            .unwrap();
         let read_back = registry.read(topic_name, 0).await.unwrap();
         assert_eq!(read_back, b"initial");
     }

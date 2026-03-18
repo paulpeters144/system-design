@@ -1,8 +1,8 @@
 use kafka_lite::access::LogAccess;
 use kafka_lite::manager::app_manager::AppManager;
-use kafka_lite::{Request, Response, AppError};
-use std::sync::Arc;
+use kafka_lite::{AppError, Request, Response};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use tokio::fs;
 
 struct TestDir(PathBuf);
@@ -28,7 +28,7 @@ impl Drop for TestDir {
     fn drop(&mut self) {
         // Use synchronous removal as Drop cannot be async.
         // On Windows, this may fail if file handles are still open.
-        // Rust drops variables in reverse order of declaration, so 
+        // Rust drops variables in reverse order of declaration, so
         // the LogAccess/AppManager (holding handles) must be declared AFTER TestDir.
         let _ = std::fs::remove_dir_all(&self.0);
     }
@@ -47,19 +47,25 @@ async fn test_end_to_end_produce_fetch() {
     let message = b"hello world".to_vec();
 
     // Produce
-    let res = manager.process(Request::Produce {
-        topic: topic.clone(),
-        message: message.clone(),
-    }).await.unwrap();
+    let res = manager
+        .process(Request::Produce {
+            topic: topic.clone(),
+            message: message.clone(),
+        })
+        .await
+        .unwrap();
 
     if let Response::Produced { offset } = res {
         assert_eq!(offset, 0);
-        
+
         // Fetch
-        let res = manager.process(Request::Fetch {
-            topic: topic.clone(),
-            offset,
-        }).await.unwrap();
+        let res = manager
+            .process(Request::Fetch {
+                topic: topic.clone(),
+                offset,
+            })
+            .await
+            .unwrap();
 
         if let Response::Fetched { message: read_msg } = res {
             assert_eq!(read_msg, message);
@@ -105,10 +111,13 @@ async fn test_persistence_across_restarts() {
         let log_access = Arc::new(log_access);
         let manager = AppManager::new(log_access);
 
-        manager.process(Request::Produce {
-            topic: topic.to_string(),
-            message: message.to_vec(),
-        }).await.unwrap();
+        manager
+            .process(Request::Produce {
+                topic: topic.to_string(),
+                message: message.to_vec(),
+            })
+            .await
+            .unwrap();
     }
 
     // Restart
@@ -117,10 +126,13 @@ async fn test_persistence_across_restarts() {
     let log_access = Arc::new(log_access);
     let manager = AppManager::new(log_access);
 
-    let res = manager.process(Request::Fetch {
-        topic: topic.to_string(),
-        offset: 0,
-    }).await.unwrap();
+    let res = manager
+        .process(Request::Fetch {
+            topic: topic.to_string(),
+            offset: 0,
+        })
+        .await
+        .unwrap();
 
     if let Response::Fetched { message: read_msg } = res {
         assert_eq!(read_msg, message);

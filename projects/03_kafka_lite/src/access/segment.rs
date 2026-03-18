@@ -199,7 +199,11 @@ mod tests {
 
         // Corrupt the file
         let log_path = dir.path().join(format!("{:020}.log", base_offset));
-        let mut file = OpenOptions::new().write(true).open(&log_path).await.unwrap();
+        let mut file = OpenOptions::new()
+            .write(true)
+            .open(&log_path)
+            .await
+            .unwrap();
         file.seek(SeekFrom::Start(8)).await.unwrap();
         file.write_all(b"B").await.unwrap();
         file.sync_all().await.unwrap();

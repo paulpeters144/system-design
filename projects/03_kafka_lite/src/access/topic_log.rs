@@ -125,8 +125,10 @@ mod tests {
     async fn test_topic_log_segment_splitting() {
         let dir = TestDir::new("splitting").await;
         // Limit size so 2 messages trigger a split
-        let limit = 20; 
-        let log = TopicLog::new(dir.path().to_path_buf(), limit).await.unwrap();
+        let limit = 20;
+        let log = TopicLog::new(dir.path().to_path_buf(), limit)
+            .await
+            .unwrap();
 
         log.append(b"message_one_long").await.unwrap();
         log.append(b"message_two_long").await.unwrap();

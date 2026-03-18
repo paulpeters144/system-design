@@ -1,5 +1,5 @@
-use serde::{Deserialize, Deserializer};
 use config::{Config, ConfigError, File};
+use serde::{Deserialize, Deserializer};
 use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Clone)]

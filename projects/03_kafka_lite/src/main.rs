@@ -2,13 +2,13 @@ use futures::{SinkExt, StreamExt};
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio_util::codec::Framed;
-use tracing::{info, error};
+use tracing::{error, info};
 use tracing_subscriber::{EnvFilter, fmt};
 
-use kafka_lite::manager::app_manager::AppManager;
+use kafka_lite::access::LogAccess;
 use kafka_lite::codec::KafkaCodec;
 use kafka_lite::config::Settings;
-use kafka_lite::access::LogAccess;
+use kafka_lite::manager::app_manager::AppManager;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -16,13 +16,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let settings = Settings::new()?;
 
     // 2. Initialize Tracing
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(&settings.log_level));
-    
-    fmt()
-        .with_env_filter(filter)
-        .with_ansi(true)
-        .init();
+    let filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&settings.log_level));
+
+    fmt().with_env_filter(filter).with_ansi(true).init();
 
     info!("Starting Kafka-lite broker...");
     info!("Configuration: {:?}", settings);
