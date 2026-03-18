@@ -31,7 +31,7 @@ flowchart TD
 
     subgraph L3 [Storage Layer]
         direction LR
-        LA[Log Access] --> TL[Topic Log] --> S[Segment]
+        LA[Log Access] ~~~ TL[Topic Log] ~~~ S[Segment]
     end
 
     subgraph L4 [Infrastructure]
@@ -88,6 +88,103 @@ data/
     └── 00000000000000000124.index
 ```
 
+## Example Use Case: Event-Driven Architecture
+
+Kafka-lite acts as a decoupled buffer between services that generate data and services that process it.
+
+```mermaid
+graph LR
+    subgraph Producers
+        P1[Web Application]
+        P2[IoT Sensors]
+    end
+
+    K[Kafka-lite]
+
+    subgraph Consumers
+        C1[Analytics Engine]
+        C2[Notification Service]
+    end
+
+    P1 -->|Produce| K
+    P2 -->|Produce| K
+    K -->|Fetch| C1
+    K -->|Fetch| C2
+```
+
+-   **Producers**: Applications (like a Web App or IoT devices) send events to Kafka-lite without needing to know who will process them.
+-   **Kafka-lite**: Safely persists events to an append-only log on disk.
+-   **Consumers**: Independent services fetch data from Kafka-lite at their own pace for processing, such as updating a database or sending alerts.
+
+## Client Interaction
+
+Kafka-lite uses a custom binary protocol over TCP. Each message is framed with a 4-byte Big-Endian length prefix, followed by a **Bincode**-serialized payload.
+
+### Node.js Example (Fictional SDK)
+
+While the underlying protocol is binary, developers would typically interact with Kafka-lite using a high-level client library.
+
+#### Producer (Order Service)
+```javascript
+const { KafkaLiteClient } = require('kafka-lite-node');
+
+// Simple object-based configuration
+const client = new KafkaLiteClient({ host: '127.0.0.1', port: 8080 });
+
+async function produceOrder() {
+    await client.connect();
+
+    const order = { id: 'ORD-123', item: 'Mechanical Keyboard', price: 150.00 };
+    
+    // SDK handles object serialization automatically
+    const { offset } = await client.produce('orders', order);
+    console.log(`Order event persisted at offset: ${offset}`);
+}
+```
+
+#### Consumer (Inventory Service)
+```javascript
+const { KafkaLiteClient } = require('kafka-lite-node');
+
+const client = new KafkaLiteClient({ host: '127.0.0.1', port: 8080 });
+
+async function consumeOrders() {
+    await client.connect();
+
+    // Enriched callback provides data, metadata, and manual ACK control
+    await client.subscribe('orders', { autoCommit: false }, async (msg, ack) => {
+        const { data, offset, timestamp } = msg;
+        console.log(`[${offset}] Processing Order: ${data.id} (Received: ${timestamp})`);
+        
+        try {
+            await updateInventory(data);
+            await ack(); // Commit offset only after successful processing
+        } catch (err) {
+            console.error("Processing failed, message will be retried.");
+        }
+    });
+}
+
+// Standard Graceful Shutdown
+process.on('SIGINT', async () => {
+    await client.disconnect();
+    process.exit(0);
+});
+```
+
+### Protocol Specification
+
+1.  **Framing**: `[u32_be frame_length][payload]`
+2.  **Serialization (Bincode 1.x)**:
+    *   **Integers**: Little-Endian (except the frame length prefix).
+    *   **Enums**: `u32` variant index.
+    *   **Strings/Vectors**: `u64` length prefix followed by raw bytes.
+
+| Request Variant | Index | Fields |
+| :--- | :--- | :--- |
+| `Produce` | `0` | `topic: String`, `message: Vec<u8>` |
+| `Fetch` | `1` | `topic: String`, `offset: u64` |
+
 ## Tech Stack
 
 - **Language**: [Rust](https://www.rust-lang.org/) (Edition 2024)
@@ -122,29 +219,6 @@ To run the broker in a containerized environment:
 just docker-up
 ```
 Data is stored internally within the container at `/data` for this learning version.
-
-## Usage
-
-Kafka-lite uses a binary protocol. While you cannot use `curl` directly, you can interact with it using the provided integration tests as a reference or by building a simple client using the `Request` and `Response` enums in `lib.rs`.
-
-### Protocol Example (Conceptual)
-Messages are sent as: `[4-byte Length][Bincode Payload]`
-
-**Produce Request:**
-```rust
-let request = Request::Produce {
-    topic: "alerts".to_string(),
-    message: b"Critical system error".to_vec(),
-};
-```
-
-**Fetch Request:**
-```rust
-let request = Request::Fetch {
-    topic: "alerts".to_string(),
-    offset: 0,
-};
-```
 
 ### Testing
 Verify the implementation with the suite of unit and integration tests:
