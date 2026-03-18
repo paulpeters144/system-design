@@ -1,30 +1,49 @@
+use crate::access::LogAccess;
 use crate::{AppError, Request, Response};
+use regex::Regex;
+use std::sync::Arc;
 
 pub struct AppManager {
-    // Current offset (this will eventually move to a LogManager)
-    current_offset: u64,
+    log_access: Arc<LogAccess>,
+    topic_regex: Regex,
 }
 
 impl AppManager {
-    pub fn new() -> Self {
-        Self { current_offset: 0 }
+    pub fn new(log_access: Arc<LogAccess>) -> Self {
+        Self {
+            log_access,
+            topic_regex: Regex::new(r"^[a-z0-9_-]+$").unwrap(),
+        }
     }
 
-    /// Pure IO Service: Domain In -> Result<Domain Out>
-    pub async fn process(&mut self, request: Request) -> Result<Response, AppError> {
+    pub async fn process(&self, request: Request) -> Result<Response, AppError> {
         match request {
             Request::Produce { topic, message } => {
-                // Future: logic to append message to disk via LogManager
-                let offset = self.current_offset;
-                self.current_offset += 1;
+                if !self.topic_regex.is_match(&topic) {
+                    return Err(AppError::InvalidTopicName);
+                }
+
+                let offset = self.log_access
+                    .append(&topic, &message)
+                    .await
+                    .map_err(|e| AppError::IoError(e.to_string()))?;
 
                 Ok(Response::Produced { offset })
             }
             Request::Fetch { topic, offset } => {
-                // Future: logic to read message from disk via LogManager
-                Ok(Response::Fetched {
-                    message: b"dummy message".to_vec(),
-                })
+                if !self.topic_regex.is_match(&topic) {
+                    return Err(AppError::InvalidTopicName);
+                }
+
+                let message = self.log_access
+                    .read(&topic, offset)
+                    .await
+                    .map_err(|e| match e.kind() {
+                        std::io::ErrorKind::NotFound => AppError::TopicNotFound,
+                        _ => AppError::IoError(e.to_string()),
+                    })?;
+
+                Ok(Response::Fetched { message })
             }
         }
     }

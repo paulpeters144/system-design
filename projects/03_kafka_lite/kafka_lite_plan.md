@@ -133,11 +133,11 @@ sequenceDiagram
 ### Implementation Steps
 - [x] **Task 1:** TCP Listener (Tokio)
 - [x] **Task 2:** Binary Framing & `KafkaCodec`
-- [ ] **Task 3:** Add config.yaml configuration
-- [x] **Task 4:** The Log Access Layer
-- [ ] **Task 5:** Server Acknowledgement (ACK)
+- [x] **Task 3:** Add config.yaml configuration
+- [x] **Task 4:** The Log Access Layer (Refactored into segment, topic_log, and registry)
+- [x] **Task 5:** Server Acknowledgement (ACK)
 
 ### Testing & Quality Assurance
 - [x] Codec Unit Tests (Fragmentation & Safety Limits)
-- [ ] Integration Tests (End-to-end Producer -> Broker)
+- [x] Integration Tests (End-to-end Producer -> Broker)
 - [ ] Throughput/Stress Tests

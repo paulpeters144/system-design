@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod access;
 pub mod codec;
+pub mod config;
 pub mod manager;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -20,6 +21,7 @@ pub enum Response {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum AppError {
     TopicNotFound,
+    InvalidTopicName,
     IoError(String),
 }
 
@@ -28,6 +30,9 @@ impl From<AppError> for Response {
         match err {
             AppError::TopicNotFound => Response::Error {
                 message: "The requested topic does not exist.".to_string(),
+            },
+            AppError::InvalidTopicName => Response::Error {
+                message: "Topic name must be lowercase alpha-numeric with '-' or '_'".to_string(),
             },
             AppError::IoError(s) => Response::Error {
                 message: format!("Broker IO Error: {}", s),
